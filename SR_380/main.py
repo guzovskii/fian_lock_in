@@ -1,16 +1,12 @@
 import logging
 import pyvisa as pv
 import equipment
-import datetime
+import time
+import pandas as pd
 
-time = datetime.datetime.now()
+R1 = equipment.SR_830("com3")
 
-print(type(datetime.datetime.now()))
+def write():
+    time.sleep(0.5)
+    print(time.perf_counter())
 
-#inst = equipment.SR_830('ASRL3::INSTR')
-#print(inst.name())
-
-#rm = pv.ResourceManager()
-#print(rm.list_resources())
-#inst = rm.open_resource('GPIB0::1::INSTR')
-#print(inst.query("*IDN?"))
