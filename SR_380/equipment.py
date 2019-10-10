@@ -78,4 +78,4 @@ class SR_830():
             print(self.address, f": FAIL to change sin voltage (current freq is {cur_volt} V)")
 
 if __name__ == "__main__":
-    print("hello")
+    print("run MAIN.PY")
