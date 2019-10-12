@@ -26,19 +26,28 @@ while 1:
 file.close()'''
 x = []
 y = []
-while 1:
-    time.sleep(100)
-    t = time.perf_counter()
-    x.append(t)
-    y.append(math.sin(t))
 
 win = pg.GraphicsWindow("my test graph")
 win.resize(1280, 720)
 
 p = win.addPlot(title="my test plot")
 
-p.plot(x=x, y=y)
+graph = p.plot(x=x, y=y)
 p.showGrid(x=True, y=True)
+time_pref = 0.
+
+def read():
+    global graph, x, y, time_pref
+    t = time.perf_counter()
+    x.append(t)
+    y.append(math.sin(t) + t)
+    if (t > time_pref + 1):
+        graph.setData(x=x, y=y)
+        time_pref = t
+
+timer = QtCore.QTimer()
+timer.timeout.connect(read)
+timer.start(10)
 
 if __name__ == '__main__':
     import sys
