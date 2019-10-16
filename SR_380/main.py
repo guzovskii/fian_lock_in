@@ -1,6 +1,6 @@
 import logging
 import pyvisa as pv
-#import equipment
+import equipment
 import time
 import math
 import pandas as pd
@@ -8,7 +8,7 @@ import csv # https://code.tutsplus.com/ru/tutorials/how-to-read-and-write-csv-fi
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
 
-'''
+
 R1 = equipment.SR_830("com3")
 NAME_LINE = ["T (sec)", "R (V)", "phase (degree)", "X (V)", "Y (V)"]
 
@@ -16,34 +16,32 @@ file = open("data.txt", "w", newline='')
 writer = csv.DictWriter(file, delimiter="\t", fieldnames=NAME_LINE)
 writer.writeheader()
 
-while 1:
-#    print("ok")
-    line = [time.perf_counter(), R1.get_ampl(), R1.get_phase(), R1.get_x(), R1.get_y()]
-    writer.writerow(dict(zip(NAME_LINE, line)))
-#    file.flush()
-    print(line)
-
-file.close()'''
+file.close()
 x = []
-y = []
+t = []
+phase = []
 
 win = pg.GraphicsWindow("my test graph")
 win.resize(1280, 720)
 
-p = win.addPlot(title="my test plot")
+p = win.addPlot(title="x")
+q = win.addPlot(title="phase")
 
-graph = p.plot(x=x, y=y)
+graph_x = p.plot(x=t, y=x)
+graph_phase = q.plot(x=t, y=phase)
 p.showGrid(x=True, y=True)
+q.showGrid(x=True, y=True)
 time_pref = 0.
 
 def read():
-    global graph, x, y, time_pref
-    t = time.perf_counter()
-    x.append(t)
-    y.append(math.sin(t) + t)
-    if (t > time_pref + 1):
-        graph.setData(x=x, y=y)
-        time_pref = t
+    global graph_x, graph_phase, x, t, time_pref, phase
+    x.append(R1.get_ampl())
+    phase.append(R1.get_phase())
+    t.append(time.perf_counter())
+    if (t[len(t) - 1] > time_pref + 1):
+        graph_x.setData(x=t, y=x)
+        graph_phase.setData(x=t, y=phase)
+        time_pref = t[len(t) - 1]
 
 timer = QtCore.QTimer()
 timer.timeout.connect(read)
