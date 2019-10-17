@@ -25,10 +25,13 @@ win = pg.GraphicsWindow("my test graph")
 win.resize(1280, 720)
 
 p = win.addPlot(title="x")
+win.nextRow()
 q = win.addPlot(title="phase")
 
 graph_x = p.plot(x=t, y=x)
 graph_phase = q.plot(x=t, y=phase)
+q.setRange(yRange=(-185, 185))
+q.enableAutoRange('y', False)
 p.showGrid(x=True, y=True)
 q.showGrid(x=True, y=True)
 time_pref = 0.
