@@ -36,6 +36,7 @@ class SR_830():
             )
 
     def name(self):
+        print(self.inst.query("*IDN?"))
         return self.inst.query("*IDN?")
 
     def get_freq(self):
