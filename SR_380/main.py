@@ -1,6 +1,6 @@
 import logging
 import sys
-
+import threading
 import pyvisa as pv
 import equipment
 import time
@@ -21,8 +21,10 @@ data_phase = []
 
 def Start():
     global WORKING_STATUS
-    WORKING_STATUS = True
-    print("reading started")
+    if not WORKING_STATUS:
+        WORKING_STATUS = True
+        switching_thread.start()
+        print("reading started")
 
 def Stop():
     global WORKING_STATUS
@@ -30,10 +32,13 @@ def Stop():
     data_time.clear()
     data_phase.clear()
     WORKING_STATUS = False
-    print("reading stoped")
+    switching_thread.join()
+    if switching_thread.is_alive():
+        print("smth wrong with switching_thread")
+
+    print("reading stopped")
 
 try:
-
     app = QtWidgets.QApplication(sys.argv)
 
     win = QtWidgets.QMainWindow()
@@ -92,17 +97,21 @@ file = open("data.txt", "w", newline='')
 writer = csv.DictWriter(file, delimiter="\t", fieldnames=NAME_LINE)
 writer.writeheader()
 
+lock = threading.Lock()
+
 def read():
     global writer, NAME_LINE
     try:
         if WORKING_STATUS:
             global ampl_graph, phase_graph, data_ampl, time, time_pref, data_phase
+            lock.acquire() #---------------------------
             new_ampl = R1.get_ampl()
             new_phase = R1.get_phase()
             new_freq = R1.get_freq()
             data_ampl.append(new_ampl)
             data_phase.append(new_phase)
             data_time.append(time.perf_counter())
+            lock.release() #---------------------------
 
             row = [data_time[-1], new_ampl, new_phase, 0., 0., new_freq]
             writer.writerow(dict(zip(NAME_LINE, row)))
@@ -113,13 +122,51 @@ def read():
     except Exception as e:
         print(e)
 
-timer = QtCore.QTimer()
-timer.timeout.connect(read)
-timer.start(10)
+def continious_measurment():
+    while 1:
+        if WORKING_STATUS == False:
+            break
+        read()
+        time.sleep(0.01)
+
+R1.set_freq(2000000)
+freq = 0.5
+
+def freq_swtch():
+    global freq, WORKING_STATUS
+    while freq < 100000:
+        if WORKING_STATUS == False:
+            break
+        with lock:
+            R1.set_freq(freq)
+            freq *= 1.1
+            time.sleep(3)
+        time.sleep(3)
+
+
+measurments_thread = threading.Thread(target=continious_measurment)
+measurments_thread.start()
+
+switching_thread = threading.Thread(target=freq_swtch)
+# switching_thread.start()
 
 if __name__ == '__main__':
     import sys
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
         QtGui.QApplication.instance().exec_()
 
+    WORKING_STATUS = False
+
+    measurments_thread.join()
+    if measurments_thread.is_alive():
+        print("smth wrong with measurments_thread")
+    else:
+        print('measurement_thread terminated OK')
+
+    switching_thread.join()
+    if switching_thread.is_alive():
+        print("smth wrong with switching_thread")
+
     file.close()
+    R1.close()
+    equipment.rm.close()

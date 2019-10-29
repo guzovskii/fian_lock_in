@@ -34,6 +34,7 @@ class SR_830():
                 data_bits=8,
                 read_termination="\r"
             )
+        self.inst.clear()
 
     def name(self):
         print(self.inst.query("*IDN?"))
@@ -44,11 +45,11 @@ class SR_830():
 
     def set_freq(self, freq: float):
         self.inst.write(f"FREQ {freq}")
-        cur_freq = self.get_freq()
-        if cur_freq == freq:
-            print(self.address, f": frequency changed to {freq} Hz")
-        else:
-            print(self.address, f": FAIL to change frequency (current freq is {cur_freq} Hz)")
+
+        # if :
+        #     print(self.address, f": frequency changed to {freq} Hz")
+        # else:
+        #     print(self.address, f": FAIL to change frequency (current freq is {cur_freq} Hz)")
 
     def get_data(self):
         data = [float(self.inst.query("OUTP? 1")), float(self.inst.query("OUTP? 2")),
@@ -78,5 +79,19 @@ class SR_830():
         else:
             print(self.address, f": FAIL to change sin voltage (current freq is {cur_volt} V)")
 
+    def close(self):
+        self.inst.close()
+
 if __name__ == "__main__":
     print("run MAIN.PY")
+    R1 = SR_830("gpib0::1::instr")
+
+    try:
+        R1.set_freq(2000000)
+        err_byte = list([R1.inst.query(f'LIAS? {i}') for i in range(8)])
+        print(err_byte)
+        errs_byte = list([R1.inst.query(f'ERRS? {i}') for i in range(8)])
+        print(errs_byte)
+    finally:
+        R1.close()
+        rm.close()
