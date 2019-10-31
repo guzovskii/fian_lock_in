@@ -6,45 +6,54 @@ from typing import Optional
 import enum
 import csv
 
-class OUTP(enum.Enum):
-    X = '1'
-    Y = '2'
-    Ampl = '3'
-    Phase = '4'
+mult_v = {"V": 1, "mV": 1e-3, "uV": 1e-6, "nV": 1e-9, 'pV': 1e-12}
 
-mult_v = {"mV": 1e-3, "V": 1, "uV": 1e-6, "nV": 1e-9}
+rm = pv.ResourceManager()
+print(rm.list_resources())
 
 def now():
     return(time.asctime(time.gmtime(time.time())))
 
-logger = logging.getLogger(__name__)
-rm = pv.ResourceManager()
-print(rm.list_resources())
-
 class SR_830():
     def __init__(self, address: str):
         self.address: str = address
-        if "GPIB" in address or "gpib" in address:
-            self.inst = rm.open_resource(address,)
-        else:
-            self.inst = rm.open_resource(
-                address,
-                baud_rate=19200,
-                parity=pv.constants.Parity.odd,
-                data_bits=8,
-                read_termination="\r"
-            )
+        try:
+            if "GPIB" in address or "gpib" in address:
+                self.inst = rm.open_resource(address,)
+            else:
+                self.inst = rm.open_resource(
+                    address,
+                    baud_rate=19200,
+                    parity=pv.constants.Parity.odd,
+                    data_bits=8,
+                    read_termination="\r"
+                )
+        except Exception as e:
+            print(e)
+        # finally:
+        #     print(self.address, f": FAIL to open resource")
         self.inst.clear()
 
     def name(self):
-        print(self.inst.query("*IDN?"))
-        return self.inst.query("*IDN?")
+        try:
+            print(self.inst.query("*IDN?"))
+            return self.inst.query("*IDN?")
+        except Exception as e:
+            print(self.address, f": FAIL to get ID")
+            return None
 
     def get_freq(self):
-        return float(self.inst.query("FREQ?").strip())
+        try:
+            return float(self.inst.query("FREQ?").strip())
+        except Exception as e:
+            print(self.address, f": FAIL to get frequency value")
+            return None
 
     def set_freq(self, freq: float):
-        self.inst.write(f"FREQ {freq}")
+        try:
+            self.inst.write(f"FREQ {freq}")
+        except Exception as e:
+            print(self.address, f": FAIL to set frequency")
 
         # if :
         #     print(self.address, f": frequency changed to {freq} Hz")
@@ -52,35 +61,65 @@ class SR_830():
         #     print(self.address, f": FAIL to change frequency (current freq is {cur_freq} Hz)")
 
     def get_data(self):
-        data = [float(self.inst.query("OUTP? 1")), float(self.inst.query("OUTP? 2")),
-                float(self.inst.query("OUTP? 3")), float(self.inst.query("OUTP? 4"))]
-        return data
+        try:
+            data = [float(self.inst.query("OUTP? 1")), float(self.inst.query("OUTP? 2")),
+                    float(self.inst.query("OUTP? 3")), float(self.inst.query("OUTP? 4"))]
+            return data
+        except Exception as e:
+            print(self.address, f": FAIL to set data")
+            return list([None for i in range(4)])
 
     def get_x(self):
-        return float(self.inst.query("OUTP? 1"))
+        try:
+            return float(self.inst.query("OUTP? 1"))
+        except Exception as e:
+            print(self.address, f": FAIL to get X value")
+            return None
 
     def get_y(self):
-        return float(self.inst.query("OUTP? 2"))
+        try:
+            return float(self.inst.query("OUTP? 2"))
+        except Exception as e:
+            print(self.address, f": FAIL to get Y value")
+            return None
 
     def get_ampl(self):
-        return float(self.inst.query("OUTP? 3"))
+        try:
+            return float(self.inst.query("OUTP? 3"))
+        except Exception as e:
+            print(self.address, f": FAIL to get amplitude value")
+            return None
 
     def get_phase(self):
-        return float(self.inst.query("OUTP? 4"))
+        try:
+            return float(self.inst.query("OUTP? 4"))
+        except Exception as e:
+            print(self.address, f": FAIL to get phase value")
 
-    def get_sin_voltage(self):
-        return float(self.inst.query("SLVL?"))
+    def get_out_voltage(self):
+        try:
+            return float(self.inst.query("SLVL?"))
+        except Exception as e:
+            print(self.address, f": FAIL to get out_voltage value")
+            return None
 
-    def set_sin_voltage(self, volt: float):
-        self.inst.write(f"SLVL {volt}")
-        cur_volt = self.get_sin_voltage()
-        if cur_volt == volt:
-            print(self.address, f": sin voltage changed to {volt} V")
-        else:
-            print(self.address, f": FAIL to change sin voltage (current freq is {cur_volt} V)")
+    def set_out_voltage(self, volt: float):
+        try:
+            self.inst.write(f"SLVL {volt}")
+            print(self.address, f": OUT voltage changed to {volt} V")
+            # cur_volt = self.get_sin_voltage()
+            # if cur_volt == volt:
+            #     print(self.address, f": sin voltage changed to {volt} V")
+            # else:
+            #     print(self.address, f": FAIL to change sin voltage (current freq is {cur_volt} V)")
+        except Exception as e:
+            print(self.address, f": FAIL to set out_voltage")
 
     def close(self):
-        self.inst.close()
+        try:
+            self.inst.close()
+        except Exception as e:
+            print(self.address, f": FAIL to close SR830")
 
 if __name__ == "__main__":
     print("run MAIN.PY")
