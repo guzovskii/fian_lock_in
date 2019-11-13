@@ -17,9 +17,9 @@ NORMALIZING_STATUS = False
 R1 = equipment.SR_830("gpib0::1::instr")
 R1.name()
 
-data_ampl = []
-data_time = []
-data_phase = []
+data_ampl = [0.]
+data_time = [0.]
+data_phase = [0.]
 
 def Start():
     global WORKING_STATUS
@@ -83,49 +83,57 @@ except Exception as e:
     print(e)
 
 
-ampl_graph.plot(x=data_time, y=data_ampl)
+ampl_graph.plot(x=data_time, y=data_ampl)#, pen=None, symbol='o', symbolBrush=None, symbolSize=1)
 # ampl_graph.plot(x=[1, 2, 3, np.nan, 5, 6, 7, np.nan, 9, 10, 11], y=[1, 2, 3, np.nan, 3, 2, 1, np.nan, 1, 2, 3], )
-phase_graph.plot(x=data_time, y=data_phase)
+phase_graph.plot(x=data_time, y=data_phase)#, pen=None, symbol='o', symbolBrush=None, symbolSize=1)
 phase_graph.setYRange(-200, 200)
 phase_graph.showGrid(x=True, y=True)
 ampl_graph.showGrid(x=True, y=True)
 time_pref = 0.
 
-NAME_LINE = ["T (sec)", "R (V)", "phase (degree)", "X (V)", "Y (V)", "freq (Hz)"]
+NAME_LINE = ["T (sec)", "R (V)", "phase (degree)", "X_noise (V)", "Y_noise (V)", "freq (Hz)"]
 
-file = open("data.txt", "w", newline='')
-writer = csv.DictWriter(file, delimiter="\t", fieldnames=NAME_LINE)
-writer.writeheader()
+file_1 = open("phase_freq_0.01V.txt", "w", newline='')
+file_2 = open("phase_freq_0.02V.txt", "w", newline='')
+file_3 = open("phase_freq_0.03V.txt", "w", newline='')
+writer_1 = csv.DictWriter(file_1, delimiter="\t", fieldnames=NAME_LINE)
+writer_2 = csv.DictWriter(file_2, delimiter="\t", fieldnames=NAME_LINE)
+writer_3 = csv.DictWriter(file_3, delimiter="\t", fieldnames=NAME_LINE)
+writer_1.writeheader()
+writer_2.writeheader()
+writer_3.writeheader()
+writer = writer_1
 freq = 0.5
 lock = threading.Lock()
 
 def read():
-    global file, writer, NAME_LINE
+    global writer, NAME_LINE
     try:
         if WORKING_STATUS:
             global ampl_graph, phase_graph, data_ampl, time, time_pref, data_phase
-            lock.acquire() #---------------------------
-            if NORMALIZING_STATUS:
-                new_ampl = None
-                new_phase = None
-                data_ampl.append(0.)
-                data_phase.append(0.)
-            else:
+            if not NORMALIZING_STATUS:
+
+                lock.acquire()  # ---------------------------
                 new_ampl = R1.get_ampl()
                 new_phase = R1.get_phase()
                 data_ampl.append(new_ampl)
                 data_phase.append(new_phase)
-            new_freq = R1.get_freq()
-            lock.release()  # ---------------------------
-            data_time.append(time.perf_counter())
+                new_freq = R1.get_freq()
+                x_noise = R1.get_ch_1()
+                y_noise = R1.get_ch_2()
+                lock.release()  # ---------------------------
 
-            row = [data_time[-1], new_ampl, new_phase, None, None, new_freq]
-            writer.writerow(dict(zip(NAME_LINE, row)))
+                row = [data_time[-1], new_ampl, new_phase, x_noise, y_noise, new_freq]
+                writer.writerow(dict(zip(NAME_LINE, row)))
+                data_time.append(time.perf_counter())
+
             if (data_time[-1] > time_pref + 1.):
-                ampl_graph.plot(x=data_time, y=data_ampl, clear=True)
-                phase_graph.plot(x=data_time, y=data_phase, clear=True)
+                ampl_graph.plot(x=data_time, y=data_ampl)#, clear=True, pen=None, symbol='o', symbolBrush=None, symbolSize=1)
+                phase_graph.plot(x=data_time, y=data_phase)#, clear=True, pen=None, symbol='o', symbolBrush=None, symbolSize=1)
                 time_pref = data_time[-1]
-                file.flush()
+                file_1.flush()
+                file_2.flush()
+                file_3.flush()
     except Exception as e:
         print(e)
 
@@ -137,10 +145,44 @@ def continious_measurment():
         time.sleep(0.01)
 
 def freq_swtch():
-    global freq, WORKING_STATUS, NORMALIZING_STATUS
+    global freq, WORKING_STATUS, NORMALIZING_STATUS, writer
+    R1.set_out_voltage(0.01)
+    writer = writer_1
     while freq < 100000:
         if WORKING_STATUS == False:
-            break
+            return 0
+        with lock:
+            R1.set_freq(freq)
+            freq *= 1.1
+        NORMALIZING_STATUS = True
+        time.sleep(5)
+        NORMALIZING_STATUS = False
+        time.sleep(3)
+
+    if WORKING_STATUS == False:
+        return 0
+    freq = 0.5
+    R1.set_out_voltage(0.02)
+    writer = writer_2
+    while freq < 100000:
+        if WORKING_STATUS == False:
+            return 0
+        with lock:
+            R1.set_freq(freq)
+            freq *= 1.1
+        NORMALIZING_STATUS = True
+        time.sleep(5)
+        NORMALIZING_STATUS = False
+        time.sleep(3)
+
+    if WORKING_STATUS == False:
+        return 0
+    freq = 0.5
+    R1.set_out_voltage(0.05)
+    writer = writer_3
+    while freq < 100000:
+        if WORKING_STATUS == False:
+            return 0
         with lock:
             R1.set_freq(freq)
             freq *= 1.1
@@ -153,6 +195,46 @@ def freq_swtch():
 measurments_thread = threading.Thread(target=continious_measurment)
 
 switching_thread = threading.Thread(target=freq_swtch)
+
+def my_script():
+    global freq, WORKING_STATUS, file
+
+    R1.set_out_voltage(0.01)
+    measurments_thread.start()
+    switching_thread.start()
+    print("reading started 0.01 V")
+
+    while switching_thread.is_alive() or measurments_thread.is_alive():
+        time.sleep(3)
+
+    file.close()
+    file = open("phase_freq_0.02V.txt", "a", newline='')
+    writer = csv.DictWriter(file, delimiter="\t", fieldnames=NAME_LINE)
+    writer.writeheader()
+
+    R1.set_out_voltage(0.02)
+    measurments_thread.start()
+    switching_thread.start()
+    print("reading started 0.02 V")
+
+    while switching_thread.is_alive() or measurments_thread.is_alive():
+        time.sleep(3)
+
+    file.close()
+    file = open("phase_freq_0.05V.txt", "a", newline='')
+    writer = csv.DictWriter(file, delimiter="\t", fieldnames=NAME_LINE)
+    writer.writeheader()
+
+    R1.set_out_voltage(0.02)
+    measurments_thread.start()
+    switching_thread.start()
+    print("reading started 0.05 V")
+
+    while switching_thread.is_alive() or measurments_thread.is_alive():
+        time.sleep(3)
+
+    print("my_csript thread finished OK")
+
 
 if __name__ == '__main__':
     import sys
@@ -173,6 +255,8 @@ if __name__ == '__main__':
     else:
         print('switching_thread terminated OK')
 
-    file.close()
+    file_1.close()
+    file_2.close()
+    file_3.close()
     R1.close()
     equipment.rm.close()

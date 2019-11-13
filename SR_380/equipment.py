@@ -121,6 +121,20 @@ class SR_830():
         except Exception as e:
             print(self.address, f": FAIL to close SR830")
 
+    def get_ch_1(self):
+        try:
+            return float(self.inst.query("OUTR? 1"))
+        except Exception as e:
+            print(self.address, f": FAIL to get ch_1 value")
+            return None
+
+    def get_ch_2(self):
+        try:
+            return float(self.inst.query("OUTR? 2"))
+        except Exception as e:
+            print(self.address, f": FAIL to get ch_2 value")
+            return None
+
 if __name__ == "__main__":
     print("run MAIN.PY")
     R1 = SR_830("gpib0::1::instr")
