@@ -144,7 +144,9 @@ def continious_measurment():
         read()
         time.sleep(0.01)
 
-def freq_swtch():
+    print("MEASURER thread finished")
+
+def switcher():
     global freq, WORKING_STATUS, NORMALIZING_STATUS, writer
     R1.set_out_voltage(0.01)
     writer = writer_1
@@ -191,49 +193,12 @@ def freq_swtch():
         NORMALIZING_STATUS = False
         time.sleep(3)
 
+    print("SWITCHER thread finished")
+
 
 measurments_thread = threading.Thread(target=continious_measurment)
 
-switching_thread = threading.Thread(target=freq_swtch)
-
-def my_script():
-    global freq, WORKING_STATUS, file
-
-    R1.set_out_voltage(0.01)
-    measurments_thread.start()
-    switching_thread.start()
-    print("reading started 0.01 V")
-
-    while switching_thread.is_alive() or measurments_thread.is_alive():
-        time.sleep(3)
-
-    file.close()
-    file = open("phase_freq_0.02V.txt", "a", newline='')
-    writer = csv.DictWriter(file, delimiter="\t", fieldnames=NAME_LINE)
-    writer.writeheader()
-
-    R1.set_out_voltage(0.02)
-    measurments_thread.start()
-    switching_thread.start()
-    print("reading started 0.02 V")
-
-    while switching_thread.is_alive() or measurments_thread.is_alive():
-        time.sleep(3)
-
-    file.close()
-    file = open("phase_freq_0.05V.txt", "a", newline='')
-    writer = csv.DictWriter(file, delimiter="\t", fieldnames=NAME_LINE)
-    writer.writeheader()
-
-    R1.set_out_voltage(0.02)
-    measurments_thread.start()
-    switching_thread.start()
-    print("reading started 0.05 V")
-
-    while switching_thread.is_alive() or measurments_thread.is_alive():
-        time.sleep(3)
-
-    print("my_csript thread finished OK")
+switching_thread = threading.Thread(target=switcher)
 
 
 if __name__ == '__main__':
