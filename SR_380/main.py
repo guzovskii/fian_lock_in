@@ -113,15 +113,14 @@ def read():
             global ampl_graph, phase_graph, data_ampl, time, time_pref, data_phase
             if not NORMALIZING_STATUS:
 
-                lock.acquire()  # ---------------------------
-                new_ampl = R1.get_ampl()
-                new_phase = R1.get_phase()
-                data_ampl.append(new_ampl)
-                data_phase.append(new_phase)
-                new_freq = R1.get_freq()
-                x_noise = R1.get_ch_1()
-                y_noise = R1.get_ch_2()
-                lock.release()  # ---------------------------
+                with lock:
+                    new_ampl = R1.get_ampl()
+                    new_phase = R1.get_phase()
+                    data_ampl.append(new_ampl)
+                    data_phase.append(new_phase)
+                    new_freq = R1.get_freq()
+                    x_noise = R1.get_ch_1()
+                    y_noise = R1.get_ch_2()
 
                 row = [data_time[-1], new_ampl, new_phase, x_noise, y_noise, new_freq]
                 writer.writerow(dict(zip(NAME_LINE, row)))
@@ -156,10 +155,10 @@ def switcher():
         with lock:
             R1.set_freq(freq)
             freq *= 1.1
-        NORMALIZING_STATUS = True
-        time.sleep(5)
-        NORMALIZING_STATUS = False
-        time.sleep(3)
+            NORMALIZING_STATUS = True
+            time.sleep(5)
+            NORMALIZING_STATUS = False
+        time.sleep(4)
 
     if WORKING_STATUS == False:
         return 0
@@ -172,9 +171,9 @@ def switcher():
         with lock:
             R1.set_freq(freq)
             freq *= 1.1
-        NORMALIZING_STATUS = True
-        time.sleep(5)
-        NORMALIZING_STATUS = False
+            NORMALIZING_STATUS = True
+            time.sleep(5)
+            NORMALIZING_STATUS = False
         time.sleep(3)
 
     if WORKING_STATUS == False:
@@ -188,9 +187,9 @@ def switcher():
         with lock:
             R1.set_freq(freq)
             freq *= 1.1
-        NORMALIZING_STATUS = True
-        time.sleep(5)
-        NORMALIZING_STATUS = False
+            NORMALIZING_STATUS = True
+            time.sleep(5)
+            NORMALIZING_STATUS = False
         time.sleep(3)
 
     print("SWITCHER thread finished")

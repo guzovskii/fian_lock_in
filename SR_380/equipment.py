@@ -73,7 +73,7 @@ class SR_830():
             sens = self.sens_up()
             if sens:
                 break
-            time.sleep(1)
+            time.sleep(5)
 
     def get_freq(self):
         try:
@@ -94,7 +94,7 @@ class SR_830():
 
     def get_data(self):
         try:
-            R1.output_overload()
+            R1.set_adeq_sens()
             data = [float(self.inst.query("OUTP? 1")), float(self.inst.query("OUTP? 2")),
                     float(self.inst.query("OUTP? 3")), float(self.inst.query("OUTP? 4"))]
             return data
@@ -104,7 +104,7 @@ class SR_830():
 
     def get_x(self):
         try:
-            R1.output_overload()
+            R1.set_adeq_sens()
             return float(self.inst.query("OUTP? 1"))
         except Exception as e:
             print(self.address, f": FAIL to get X value ({e})")
@@ -112,7 +112,7 @@ class SR_830():
 
     def get_y(self):
         try:
-            R1.output_overload()
+            R1.set_adeq_sens()
             return float(self.inst.query("OUTP? 2"))
         except Exception as e:
             print(self.address, f": FAIL to get Y value ({e})")
@@ -120,7 +120,7 @@ class SR_830():
 
     def get_ampl(self):
         try:
-            R1.output_overload()
+            R1.set_adeq_sens()
             return float(self.inst.query("OUTP? 3"))
         except Exception as e:
             print(self.address, f": FAIL to get amplitude value ({e})")
@@ -203,7 +203,7 @@ class SR_830():
 
     def get_ch_1(self):
         try:
-            R1.output_overload()
+            R1.set_adeq_sens()
             return float(self.inst.query("OUTR? 1"))
         except Exception as e:
             print(self.address, f": FAIL to get CH_1 value ({e})")
@@ -211,7 +211,7 @@ class SR_830():
 
     def get_ch_2(self):
         try:
-            R1.output_overload()
+            R1.set_adeq_sens()
             return float(self.inst.query("OUTR? 2"))
         except Exception as e:
             print(self.address, f": FAIL to get CH_2 value ({e})")
