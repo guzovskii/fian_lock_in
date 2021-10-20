@@ -1,6 +1,6 @@
 import pyvisa as pv
 import pyvisa.constants
-import logging
+import logging as log
 import time
 from typing import Optional
 import enum
@@ -9,14 +9,18 @@ import csv
 mult_v = {"V": 1, "mV": 1e-3, "uV": 1e-6, "nV": 1e-9, 'pV': 1e-12}
 
 rm = pv.ResourceManager()
-print(rm.list_resources())
+
+InstrList = rm.list_resources()
+print(InstrList)
 
 def now():
     return(time.asctime(time.gmtime(time.time())))
 
+
 class SR_830():
     def __init__(self, address: str):
         self.address: str = address
+        self.inst = None
         try:
             if "GPIB" in address or "gpib" in address:
                 self.inst = rm.open_resource(address,)
@@ -28,10 +32,10 @@ class SR_830():
                     data_bits=8,
                     read_termination="\r"
                 )
+            self.inst.clear()
         except Exception as e:
-            print(e)
+            log.warning(f'\t{address}:\n\t{e}')
 
-        self.inst.clear()
         self.sens_dict = {0: "2 nV / fA",
                           1: "5 nV / fA",
                           2: "10 nV / fA",
@@ -65,7 +69,7 @@ class SR_830():
             print(self.inst.query("*IDN?"))
             return self.inst.query("*IDN?")
         except Exception as e:
-            print(self.address, f": FAIL to get ID ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to get ID\n\t{e}")
             return None
 
     def set_adeq_sens(self):
@@ -79,7 +83,7 @@ class SR_830():
         try:
             return float(self.inst.query("FREQ?").strip())
         except Exception as e:
-            print(self.address, f": FAIL to get frequency value ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to get frequency value\n\t{e}")
             return None
 
     def set_freq(self, freq: float):
@@ -90,7 +94,7 @@ class SR_830():
             else:
                 print(self.address, f": frequency changed to {freq} Hz")
         except Exception as e:
-            print(self.address, f": FAIL to set frequency ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to set frequency\n\t{e}")
 
     def get_data(self):
         try:
@@ -99,7 +103,7 @@ class SR_830():
                     float(self.inst.query("OUTP? 3")), float(self.inst.query("OUTP? 4"))]
             return data
         except Exception as e:
-            print(self.address, f": FAIL to get data ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to get data\n\t{e}")
             return list([None for i in range(4)])
 
     def get_x(self):
@@ -107,7 +111,7 @@ class SR_830():
             R1.set_adeq_sens()
             return float(self.inst.query("OUTP? 1"))
         except Exception as e:
-            print(self.address, f": FAIL to get X value ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to get X value\n\t{e}")
             return None
 
     def get_y(self):
@@ -115,7 +119,7 @@ class SR_830():
             R1.set_adeq_sens()
             return float(self.inst.query("OUTP? 2"))
         except Exception as e:
-            print(self.address, f": FAIL to get Y value ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to get Y value\n\t{e}")
             return None
 
     def get_ampl(self):
@@ -123,37 +127,37 @@ class SR_830():
             R1.set_adeq_sens()
             return float(self.inst.query("OUTP? 3"))
         except Exception as e:
-            print(self.address, f": FAIL to get amplitude value ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to get amplitude value\n\t{e}")
             return None
 
     def get_phase(self):
         try:
             return float(self.inst.query("OUTP? 4"))
         except Exception as e:
-            print(self.address, f": FAIL to get phase value ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to get phase value\n\t{e}")
 
     def get_out_voltage(self):
         try:
             return float(self.inst.query("SLVL?"))
         except Exception as e:
-            print(self.address, f": FAIL to get out_voltage value ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to get out_voltage value\n\t{e}")
             return None
 
     def set_out_voltage(self, volt: float):
         try:
             self.inst.write(f"SLVL {volt}")
             if self.exec_status():
-                print(self.address, f": FAIL to set out_voltage")
+                log.warning(f"\t{self.address}:\tFAIL to set out_voltage\n\t{e}")
             else:
-                print(self.address, f": OUT VOLTAGE changed to {volt} V")
+                log.info(f"\t{self.address}:\tOUT VOLTAGE changed to {volt} V")
         except Exception as e:
-            print(self.address, f": FAIL to set out_voltage ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to set out_voltage\n\t{e}")
 
     def get_sens(self):
         try:
             return int(self.inst.query("SENS?"))
         except Exception as e:
-            print(self.address, f": FAIL to get SENSITIVITY value ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to get SENSITIVITY value\n\t{e}")
             return None
 
     def sens_up(self):
@@ -161,13 +165,13 @@ class SR_830():
             sens = self.get_sens()
             self.set_sens(min(sens + 1, 26))
             if sens < 26:
-                print(self.address, f": SENSITIVITY set to {self.sens_dict[min(sens + 1, 26)]}")
+                log.info(f"\t{self.address}:\tSENSITIVITY set to {self.sens_dict[min(sens + 1, 26)]}")
                 return 0
             else:
-                print(self.address, f": max SENSITIVITY set")
+                log.info(f"\t{self.address}:\tmax SENSITIVITY set")
                 return 1
         except Exception as e:
-            print(self.address, f": FAIL to upgrade SENSITIVITY ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to upgrade SENSITIVITY\n\t{e}")
             return 0
 
     def sens_down(self):
@@ -175,38 +179,42 @@ class SR_830():
             sens = self.get_sens()
             self.set_sens(max(sens - 1, 0))
             if sens > 0:
-                print(self.address, f": SENSITIVITY set to {self.sens_dict[max(sens - 1, 0)]}")
+                log.info(f"\t{self.address}:\tSENSITIVITY set to {self.sens_dict[min(sens - 1, 26)]}")
                 return 0
             else:
-                print(self.address, f": min SENSITIVITY set")
+                log.info(f"\t{self.address}:\tmin SENSITIVITY set")
                 return 1
         except Exception as e:
-            print(self.address, f": FAIL to downgrade SENSITIVITY ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to downgrade SENSITIVITY\n\t{e}")
             return 0
 
     def set_sens(self, n: int):
         try:
             self.inst.write(f"SENS {n}")
             if self.exec_status():
-                print(self.address, f": FAIL to set SENSITIVITY")
+                log.warning(f"\t{self.address}:\tFAIL to set SENSITIVITY")
             else:
                 print(self.address, f": SENSITIVITY set to {self.sens_dict[n]}")
+                log.info(f"\t{self.address}:\tSENSITIVITY set to {self.sens_dict[n]}")
         except Exception as e:
-            print(self.address, f": FAIL to set SENSITIVITY ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to set SENSITIVITY\n\t{e}")
             return None
 
     def close(self):
         try:
             self.inst.close()
         except Exception as e:
-            print(self.address, f": FAIL to close SR830 ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to close SR830\n\t{e}")
+
+    def __del__(self):
+        self.close()
 
     def get_ch_1(self):
         try:
             R1.set_adeq_sens()
             return float(self.inst.query("OUTR? 1"))
         except Exception as e:
-            print(self.address, f": FAIL to get CH_1 value ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to get CH_1 value\n\t{e}")
             return None
 
     def get_ch_2(self):
@@ -214,28 +222,28 @@ class SR_830():
             R1.set_adeq_sens()
             return float(self.inst.query("OUTR? 2"))
         except Exception as e:
-            print(self.address, f": FAIL to get CH_2 value ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to get CH_2 value\n\t{e}")
             return None
 
     def get_standard_event_status(self, n: int):
         try:
             return int(self.inst.query(f"*ESR? {n}"))
         except Exception as e:
-            print(self.address, f": FAIL to get STANDARD EVENT STATUS BYTE {n} value ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to get STANDART EVENT STATUS BYTE {n} value\n\t{e}")
             return None
 
     def get_LIA_status(self, n: int):
         try:
             return int(self.inst.query(f"LIAS? {n}"))
         except Exception as e:
-            print(self.address, f": FAIL to get LIA STATUS BYTE {n} value ({e})")
+            log.warning(f"\t{self.address}:\tFAIL to LIA STATUS BYTE {n} value\n\t{e}")
             return None
 
     def is_query_legal(self):
         try:
             ans = self.get_standard_event_status(5)
             if ans:
-                print(self.address, f": illegal command")
+                log.warning(f"\t{self.address}:\tillegal command")
             return ans
         except Exception as e:
             print(self.address, ": ", e)
@@ -245,7 +253,7 @@ class SR_830():
         try:
             ans = self.get_standard_event_status(4)
             if ans:
-                print(self.address, f": FAIL to execute command")
+                log.warning(f"\t{self.address}:\tFAIL to execute command")
             return ans
         except Exception as e:
             print(self.address, ": ", e)
@@ -255,17 +263,16 @@ class SR_830():
         try:
             ans = self.get_LIA_status(2)
             if ans:
-                print(self.address, f": output overload detected")
+                log.warning(f"\t{self.address}:\toutput overload detected")
             return ans
         except Exception as e:
             print(self.address, ": ", e)
             return 0
 
+
 if __name__ == "__main__":
     print("run MAIN.PY")
     R1 = SR_830("gpib0::1::instr")
-
-
 
     try:
         #R1.set_freq(2000000)
