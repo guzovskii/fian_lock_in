@@ -13,8 +13,9 @@ rm = pv.ResourceManager()
 InstrList = rm.list_resources()
 print(InstrList)
 
+
 def now():
-    return(time.asctime(time.gmtime(time.time())))
+    return time.asctime(time.gmtime(time.time()))
 
 
 class SR_830():
