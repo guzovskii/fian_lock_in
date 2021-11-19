@@ -10,6 +10,9 @@ the left/right mouse buttons. Right click on any plot to show a context menu.
 import pyqtgraph as pg
 import pyqtgraph.examples
 
-pyqtgraph.examples.run()
+# pyqtgraph.examples.run()
+
+writer = None
+writer.writerow()
 
 

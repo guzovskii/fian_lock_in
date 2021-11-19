@@ -1,266 +1,351 @@
-import logging
+import datetime
 import numpy as np
 import sys
 import threading
 import pyvisa as pv
 
-# import SR_380.equipment
+# import SR_380.equipment as eqip
 import equipment
 import time
 import math
 import pandas as pd
-import csv # https://code.tutsplus.com/ru/tutorials/how-to-read-and-write-csv-files-in-python--cms-29907
+import csv
 import pyqtgraph as pg
 import logging as log
+import os
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
+from SR_380.gui import MyGraphWidget, MyGUI
 
 WORKING_STATUS = False
-NORMALIZING_STATUS = False
+GUI_STATUS = True
+LOCK = threading.Lock()
+START_DT = datetime.datetime.now()
+NUMBER_OF_POINTS = 10000
 
 R1 = None
-# R1 = equipment.SR_830("gpib0::1::instr")
-# R1.name()
+R2 = None
+K1 = None
+K2 = None
 
-data_ampl = [0.]
-data_time = [0.]
-data_phase = [0.]
+
+class DATA_LIST_CLASS:
+    def __init__(self):
+        self.names = [
+            'Time',
+            'T',
+            '1_SR_Freq',
+            '1_SR_R',
+            '1_SR_Phase',
+            '1_SR_X',
+            '1_SR_Y',
+            '2_SR_Freq',
+            '2_SR_R',
+            '2_SR_Phase',
+            '2_SR_X',
+            '2_SR_Y',
+            '1_K_R4',
+            '2_K_R4',
+        ]
+        self.units = [
+            'sec',
+            'K',
+            'Hz',
+            'V',
+            'deg',
+            'V',
+            'V',
+            'Hz',
+            'V',
+            'deg',
+            'V',
+            'V',
+            'Ohm',
+            'Ohm',
+        ]
+        self.data = pd.DataFrame({key: np.array([]) for key in self.names})
+
+
+DATA_LIST = DATA_LIST_CLASS()
+
+FILE = None
+WRITER = None
+
+
+def WriteRow(row):
+    if len(row) != len(DATA_LIST.names):
+        log.warning('WriteRow Error: Incorrect number of values')
+    else:
+        if WRITER:
+            WRITER.writerow(dict(zip(DATA_LIST.names, row)))
+
+
+WriteRow(DATA_LIST.units)
 
 
 def Start():
-    global WORKING_STATUS
+    global WORKING_STATUS, FILE, WRITER
     try:
-        if not WORKING_STATUS and R1.name() is not None:
+        if not WORKING_STATUS:
             WORKING_STATUS = True
-            measurments_thread.start()
-            switching_thread.start()
-            log.info("reading started")
+
+            FileName = CurrentNameLabel.text().strip()
+            if FileName != '':
+                isFile = os.path.isfile(FileName)
+                FILE = open(FileName, 'a' if isFile else 'w', newline='')
+                WRITER = csv.DictWriter(FILE, delimiter="\t", fieldnames=DATA_LIST.names)
+                if not isFile:
+                    WRITER.writeheader()
+                    WriteRow(DATA_LIST.units)
+
+            log.info("Reading started")
     except Exception as e:
-        log.warning(f'Start problem. Check the INSTRUMENT\n\t{e}')
+        log.warning(f'Problem while STARTING. Check the INSTRUMENT\n\t{e}')
 
 
 def Stop():
     global WORKING_STATUS
     try:
-        data_ampl.clear()
-        data_time.clear()
-        data_phase.clear()
         WORKING_STATUS = False
-        measurments_thread.join()
-        if measurments_thread.is_alive():
-            log.warning("smth wrong with measurnents_thread")
-        switching_thread.join()
-        if switching_thread.is_alive():
-            log.warning("smth wrong with switching_thread")
-
-        log.info("reading stopped")
+        if FILE:
+            FILE.close()
+        log.info("Reading stopped")
     except Exception as e:
-        log.warning(f'Stop problem\n\t{e}')
+        log.warning(f'Problem while STOPPING\n\t{e}')
+
+
+def ConfirmFileName():
+    CurrentNameLabel.setText(FileNameInput.text())
 
 
 def SelectInstr():
     global R1
-    if R1:
-        R1.close()
-    instr = Combo_Box.currentText()
-    R1 = equipment.SR_830(instr)
-    R1.name()
+    if R1_CB.currentText() == 'None':
+        pass
+    else:
+        try:
+            R1 = equipment.SR_830(R1_CB.currentText())
+            if R1.name() is None:
+                R1_CB.setCurrentIndex(0)
+            else:
+                log.info(f'Instrument {R1.name()} connected')
+        except Exception as e:
+            log.warning(f'FAIL to connect instrument {R1_CB.currentText()}: {e}')
 
-#-------------------------GUI---------------------------
+
+def UpdateGraphs():
+    with LOCK:
+        graph_1.plot(x=DATA_LIST.data[graph_1.x_data],
+                     y=DATA_LIST.data[graph_1.y_data],
+                     clear=True)  #, pen=None, symbol='o', symbolBrush=None, symbolSize=1)
+        graph_2.plot(x=DATA_LIST.data[graph_2.x_data],
+                     y=DATA_LIST.data[graph_2.y_data],
+                     clear=True)  #, pen=None, symbol='o', symbolBrush=None, symbolSize=1)
+        graph_3.plot(x=DATA_LIST.data[graph_3.x_data],
+                     y=DATA_LIST.data[graph_3.y_data],
+                     clear=True)  # , pen=None, symbol='o', symbolBrush=None, symbolSize=1)
+        graph_4.plot(x=DATA_LIST.data[graph_4.x_data],
+                     y=DATA_LIST.data[graph_4.y_data],
+                     clear=True)  # , pen=None, symbol='o', symbolBrush=None, symbolSize=1)
+        if FILE and WORKING_STATUS:
+            FILE.flush()
+
+
+def Reading():
+    global DATA_LIST
+    while GUI_STATUS:
+        time.sleep(0.2)
+        if WORKING_STATUS:
+            dt = datetime.datetime.now() - START_DT
+            try:
+                new_row = dict()
+                new_row['Time'] = dt.seconds + dt.microseconds / 1e6
+                new_row['T'] = np.random.normal(15)
+                if R1:
+                    pass
+                else:
+                    new_row['1_SR_Freq'] = None
+                    new_row['1_SR_R'] = None
+                    new_row['1_SR_Phase'] = None
+                    new_row['1_SR_X'] = None
+                    new_row['1_SR_Y'] = None
+
+                if R2:
+                    pass
+                else:
+                    new_row['2_SR_Freq'] = None
+                    new_row['2_SR_R'] = None
+                    new_row['2_SR_Phase'] = None
+                    new_row['2_SR_X'] = None
+                    new_row['2_SR_Y'] = None
+
+                if K1:
+                    pass
+                else:
+                    new_row['1_K_R4'] = None
+
+                if K2:
+                    pass
+                else:
+                    new_row['2_K_R4'] = None
+
+                DATA_LIST.data = DATA_LIST.data.append(new_row, ignore_index=True)
+                if len(DATA_LIST.data[DATA_LIST.names[0]]) > NUMBER_OF_POINTS:
+                    DATA_LIST.data = DATA_LIST.data.drop(0)
+                if WRITER:
+                    WRITER.writerow(new_row)
+
+            except Exception as e:
+                log.warning(f'FAIL to read: {e}')
+
+    log.info('READING finished')
+
+
+def Program():
+    while GUI_STATUS:
+        time.sleep(1)
+
+    log.info('PROGRAM finished')
+
+
+READING_THREAD = threading.Thread(target=Reading)
+PROGRAM_THREAD = threading.Thread(target=Program)
+
+
+# -------------------------GUI---------------------------
+
+
 try:
+    # GUI = MyGUI(
+    #
+    # )
+
     app = QtWidgets.QApplication(sys.argv)
 
     win = QtWidgets.QMainWindow()
-    win.resize(1280, 720)
+    win.resize(1000, 1000)
+    win.setWindowTitle('LowTempMeasurements')
+    win.setWindowIcon(QtGui.QIcon('1x/icon.png'))
+    win.setMinimumWidth(800)
+    win.setMinimumHeight(900)
 
-    ampl_graph = pg.PlotWidget(title="Amplitude")
-    phase_graph = pg.PlotWidget(title="Phase")
-    button_space = QtWidgets.QWidget()
+    graph_1 = MyGraphWidget(x_list=DATA_LIST.names, y_list=DATA_LIST.names)
+    graph_2 = MyGraphWidget(x_list=DATA_LIST.names, y_list=DATA_LIST.names)
+    graph_3 = MyGraphWidget(x_list=DATA_LIST.names, y_list=DATA_LIST.names)
+    graph_4 = MyGraphWidget(x_list=DATA_LIST.names, y_list=DATA_LIST.names)
 
-    Stop_Button = QtWidgets.QPushButton("STOP")
-    Start_Button = QtWidgets.QPushButton("START")
-    Combo_Box = QtWidgets.QComboBox()
-    Combo_Box.addItems(equipment.InstrList)
-    Combo_Box.activated.connect(SelectInstr)
+    StartButton = QtWidgets.QPushButton("START")
+    StartButton.setIcon(QtGui.QIcon('1x/start.png'))
+    StartButton.setIconSize(QtCore.QSize(30, 30))
+    StartButton.setFixedWidth(150)
+    StartButton.setFixedHeight(50)
+    StartButton.clicked.connect(Start)
 
-    Stop_Button.setFixedWidth(200)
-    Start_Button.setFixedWidth(200)
-    Combo_Box.setFixedWidth(200)
+    StopButton = QtWidgets.QPushButton("STOP")
+    StopButton.setIcon(QtGui.QIcon('1x/stop.png'))
+    StopButton.setIconSize(QtCore.QSize(30, 30))
+    StopButton.setFixedWidth(150)
+    StopButton.setFixedHeight(50)
+    StopButton.clicked.connect(Stop)
 
-    Start_Button.clicked.connect(Start)
-    Stop_Button.clicked.connect(Stop)
+    FileNameInputLabel = QtWidgets.QLabel('File name:')
+    FileNameInputLabel.setAlignment(QtCore.Qt.AlignCenter)
+    FileNameInputLabel.setFixedWidth(50)
+
+    FileNameInput = QtWidgets.QLineEdit()
+    FileNameInput.setAlignment(QtCore.Qt.AlignCenter)
+    FileNameInput.returnPressed.connect(ConfirmFileName)
+
+    ConfirmFileNameButton = QtWidgets.QPushButton("CONFIRM")
+    ConfirmFileNameButton.setFixedWidth(100)
+    ConfirmFileNameButton.clicked.connect(ConfirmFileName)
+    ConfirmFileNameButton.setAutoDefault(True)
+
+    CurrentNameLabel = QtWidgets.QLineEdit()
+    CurrentNameLabel.setDisabled(True)
+    CurrentNameLabel.setAlignment(QtCore.Qt.AlignCenter)
+    CurrentNameLabel.setFixedWidth(250)
+
+    file_name_layout = QtWidgets.QHBoxLayout()
+    file_name_layout.addWidget(FileNameInputLabel)
+    file_name_layout.addWidget(FileNameInput)
+    file_name_layout.addWidget(ConfirmFileNameButton)
+    file_name_layout.addWidget(CurrentNameLabel)
+
+    file_name_widget = QtWidgets.QWidget()
+    file_name_widget.setLayout(file_name_layout)
 
     button_layout = QtWidgets.QHBoxLayout()
-    button_layout.addWidget(Start_Button)
-    button_layout.addWidget(Stop_Button)
-    button_layout.addWidget(Combo_Box)
-    button_space.setLayout(button_layout)
+    button_layout.addWidget(StartButton)
+    button_layout.addWidget(StopButton)
+    button_layout.setAlignment(QtCore.Qt.AlignCenter)
 
-    layout = QtWidgets.QVBoxLayout()
-    layout.addWidget(ampl_graph)
-    layout.addWidget(phase_graph)
-    layout.addWidget(button_space)
+    button_widget = QtWidgets.QWidget()
+    button_widget.setLayout(button_layout)
 
-    widget = QtWidgets.QWidget()
-    widget.setLayout(layout)
+    main_tab_layout = QtWidgets.QGridLayout()
+    main_tab_layout.addWidget(graph_1, 0, 0)
+    main_tab_layout.addWidget(graph_2, 0, 1)
+    main_tab_layout.addWidget(graph_3, 1, 0)
+    main_tab_layout.addWidget(graph_4, 1, 1)
+    main_tab_layout.addWidget(file_name_widget, 2, 0, 1, 2)
+    main_tab_layout.addWidget(button_widget, 3, 0, 1, 2)
 
-    win.setCentralWidget(widget)
+    main_widget = QtWidgets.QWidget()
+    main_widget.setLayout(main_tab_layout)
+
+    settings_widget = QtWidgets.QWidget()
+
+    tab_widget = QtWidgets.QTabWidget()
+
+    tab_widget.addTab(main_widget, QtGui.QIcon('1x/plots.png'), 'Plots')
+    tab_widget.addTab(settings_widget, QtGui.QIcon('1x/settings.png'), 'Settings')
+    tab_widget.setIconSize(QtCore.QSize(20, 20))
+    win.setCentralWidget(tab_widget)
+
+    update_timer = QtCore.QTimer()
+    update_timer.timeout.connect(UpdateGraphs)
+    update_timer.setInterval(1000)
 
     win.show()
 except Exception as e:
     print(f"GUI error ({e})")
-
-
-ampl_graph.plot(x=data_time, y=data_ampl)#, pen=None, symbol='o', symbolBrush=None, symbolSize=1)
-# ampl_graph.plot(x=[1, 2, 3, np.nan, 5, 6, 7, np.nan, 9, 10, 11], y=[1, 2, 3, np.nan, 3, 2, 1, np.nan, 1, 2, 3], )
-phase_graph.plot(x=data_time, y=data_phase)#, pen=None, symbol='o', symbolBrush=None, symbolSize=1)
-phase_graph.setYRange(-200, 200)
-phase_graph.showGrid(x=True, y=True)
-ampl_graph.showGrid(x=True, y=True)
-time_pref = 0.
-
-NAME_LINE = ["T (sec)", "R (V)", "phase (degree)", "X_noise (V)", "Y_noise (V)", "freq (Hz)"]
-
-file_1 = open("phase_freq_0.01V.txt", "w", newline='')
-file_2 = open("phase_freq_0.02V.txt", "w", newline='')
-file_3 = open("phase_freq_0.03V.txt", "w", newline='')
-writer_1 = csv.DictWriter(file_1, delimiter="\t", fieldnames=NAME_LINE)
-writer_2 = csv.DictWriter(file_2, delimiter="\t", fieldnames=NAME_LINE)
-writer_3 = csv.DictWriter(file_3, delimiter="\t", fieldnames=NAME_LINE)
-writer_1.writeheader()
-writer_2.writeheader()
-writer_3.writeheader()
-writer = writer_1
-freq = 0.5
-lock = threading.Lock()
-
-
-def read():
-    global writer, NAME_LINE
-    try:
-        if WORKING_STATUS and R1.name() is not None:
-            global ampl_graph, phase_graph, data_ampl, time, time_pref, data_phase
-            if not NORMALIZING_STATUS:
-
-                with lock:
-                    new_ampl = R1.get_ampl()
-                    new_phase = R1.get_phase()
-                    data_ampl.append(new_ampl)
-                    data_phase.append(new_phase)
-                    new_freq = R1.get_freq()
-                    x_noise = R1.get_ch_1()
-                    y_noise = R1.get_ch_2()
-
-                row = [data_time[-1], new_ampl, new_phase, x_noise, y_noise, new_freq]
-                writer.writerow(dict(zip(NAME_LINE, row)))
-                data_time.append(time.perf_counter())
-
-            if (data_time[-1] > time_pref + 1.):
-                ampl_graph.plot(x=data_time, y=data_ampl)#, clear=True, pen=None, symbol='o', symbolBrush=None, symbolSize=1)
-                phase_graph.plot(x=data_time, y=data_phase)#, clear=True, pen=None, symbol='o', symbolBrush=None, symbolSize=1)
-                time_pref = data_time[-1]
-                file_1.flush()
-                file_2.flush()
-                file_3.flush()
-    except Exception as e:
-        print(e)
-
-
-def continious_measurment():
-    while 1:
-        if WORKING_STATUS == False or R1.name() is None:
-            break
-        read()
-        time.sleep(0.01)
-
-    log.info("MEASURER thread finished")
-
-
-def switcher():
-    global freq, WORKING_STATUS, NORMALIZING_STATUS, writer
-    R1.set_out_voltage(0.01)
-    writer = writer_1
-    while freq < 100000:
-        if WORKING_STATUS == False:
-            return 0
-        with lock:
-            R1.set_freq(freq)
-            freq *= 1.1
-            NORMALIZING_STATUS = True
-            time.sleep(5)
-            NORMALIZING_STATUS = False
-        time.sleep(4)
-
-    if WORKING_STATUS == False:
-        return 0
-    freq = 0.5
-    R1.set_out_voltage(0.02)
-    writer = writer_2
-    while freq < 100000:
-        if WORKING_STATUS == False:
-            return 0
-        with lock:
-            R1.set_freq(freq)
-            freq *= 1.1
-            NORMALIZING_STATUS = True
-            time.sleep(5)
-            NORMALIZING_STATUS = False
-        time.sleep(3)
-
-    if WORKING_STATUS == False:
-        return 0
-    freq = 0.5
-    R1.set_out_voltage(0.05)
-    writer = writer_3
-    while freq < 100000:
-        if WORKING_STATUS == False:
-            return 0
-        with lock:
-            R1.set_freq(freq)
-            freq *= 1.1
-            NORMALIZING_STATUS = True
-            time.sleep(5)
-            NORMALIZING_STATUS = False
-        time.sleep(3)
-
-    log.info("SWITCHER thread finished")
-
-
-measurments_thread = threading.Thread(target=continious_measurment)
-
-switching_thread = threading.Thread(target=switcher)
-
+    raise
 
 if __name__ == '__main__':
     import sys
+
+    READING_THREAD.start()
+    PROGRAM_THREAD.start()
+
+    update_timer.start()
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-        QtGui.QApplication.instance().exec_()
+        app.exec_()
 
-    WORKING_STATUS = False
-
-    try:
-        measurments_thread.join()
-    except Exception as e:
-        log.warning(f'Unable to join measurments_thread\n\t{e}')
-    if measurments_thread.is_alive():
-        log.warning("smth wrong with measurments_thread")
-    else:
-        log.info('measurement_thread terminated OK')
+    if WORKING_STATUS:
+        Stop()
+    GUI_STATUS = False
 
     try:
-        switching_thread.join()
+        READING_THREAD.join()
     except Exception as e:
-        log.warning(f'Unable to join switching_thread\n\t{e}')
-    if switching_thread.is_alive():
-        log.warning("smth wrong with switching_thread")
+        log.warning(f'Unable to join READING_THREAD\n\t{e}')
+    if READING_THREAD.is_alive():
+        log.warning("Something wrong with READING_THREAD")
     else:
-        log.info('switching_thread terminated OK')
+        log.info('READING_THREAD terminated OK')
 
-    file_1.close()
-    file_2.close()
-    file_3.close()
-    if R1:
-        try:
-            R1.close()
-        except Exception as e:
-            log.warning(f'Unable to close INSTRUMENT\n\t{e}')
+    try:
+        PROGRAM_THREAD.join()
+    except Exception as e:
+        log.warning(f'Unable to join PROGRAM_TREAD\n\t{e}')
+    if PROGRAM_THREAD.is_alive():
+        log.warning("Something wrong with PROGRAM_THREAD")
+    else:
+        log.info('PROGRAM_THREAD terminated OK')
+
+    # try:
+    #     FILE.close()
+    # except Exception as e:
+    #     log.warning(f'FAIL to close FILE: {e}')
+
     equipment.rm.close()
