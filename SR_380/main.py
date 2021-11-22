@@ -11,7 +11,7 @@ import math
 import pandas as pd
 import csv
 import pyqtgraph as pg
-import logging as log
+import logging
 import os
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 from SR_380.gui import MyGraphWidget, MyGUI
@@ -26,6 +26,35 @@ R1 = None
 R2 = None
 K1 = None
 K2 = None
+
+logger = logging.getLogger('log')
+logger.setLevel(logging.DEBUG)
+
+# создаем файловый обработчик, который
+# регистрирует отладочные сообщения
+# fh = logging.FileHandler(datetime.datetime.now().strftime("log_%m-%d-%Y_%H_%M_%S") + '.log')
+fh = logging.FileHandler('log.log')
+fh.setLevel(logging.DEBUG)
+
+# создаем консольный обработчик
+# с более высоким уровнем журнала
+ch = logging.StreamHandler()
+ch.setLevel(logging.ERROR)
+
+# создаем форматтер и добавляем его в обработчики
+fmtstr = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+fmtdate = '%H:%M:%S'
+formatter = logging.Formatter(fmtstr, fmtdate)
+fh.setFormatter(formatter)
+ch.setFormatter(formatter)
+
+# добавляем настроенные обработчики в логгер
+logger.addHandler(fh)
+logger.addHandler(ch)
+
+logger.info('создание объекта Auxiliary')
+
+# logging.info('logger')
 
 
 class DATA_LIST_CLASS:

@@ -8,7 +8,7 @@ import os
 import numpy as np
 import datetime
 import csv
-import logging as log
+import logging
 import time
 
 
@@ -135,6 +135,8 @@ class MyGraphWidget(QtWidgets.QWidget):
 class MyGUI:
     def __init__(self):
         self.app = QtWidgets.QApplication(sys.argv)
+        
+        self.logger = logging.getLogger('log.gui.MyGUI')
 
         self.data_list = DataListClass()
 
@@ -205,7 +207,6 @@ class MyGUI:
                 confirm_button=QtWidgets.QPushButton(),
                 text_line=QtWidgets.QLineEdit(),
             ))
-            
 
         self.file_name_layout = QtWidgets.QHBoxLayout()
         self.file_name_layout.addWidget(self.FileNameInputLabel)
@@ -255,13 +256,16 @@ class MyGUI:
 
     def exec(self):
         self.READING_THREAD.start()
-        print('Starting GUI...')
+        # print('Starting GUI...')
         self.update_timer.start()
         self.app.exec()
         self.close()
 
     def close(self):
-        print('Closing GUI...')
+        self.__del__()
+
+    def __del__(self):
+        # print('Closing GUI...')
         if self.__WORKING_STATUS:
             self.__Stop()
 
@@ -280,24 +284,22 @@ class MyGUI:
         try:
             self.READING_THREAD.join()
         except Exception as e:
-            log.warning(f'Unable to join READING_THREAD\n\t{e}')
+            self.logger.warning(f'Unable to join READING_THREAD\n\t{e}')
         if self.READING_THREAD.is_alive():
-            log.warning("Something wrong with READING_THREAD")
+            self.logger.warning("Something wrong with READING_THREAD")
         else:
-            print('READING THREAD finished')
-            log.info('READING_THREAD terminated OK')
+            # print('READING THREAD finished')
+            print('--READING_THREAD terminated OK')
+            self.logger.info('READING_THREAD terminated OK')
 
         # try:
         #     self.PROGRAM_THREAD.join()
         # except Exception as e:
-        #     log.warning(f'Unable to join PROGRAM_TREAD\n\t{e}')
+        #     self.logger.warning(f'Unable to join PROGRAM_TREAD\n\t{e}')
         # if self.PROGRAM_THREAD.is_alive():
-        #     log.warning("Something wrong with PROGRAM_THREAD")
+        #     self.logger.warning("Something wrong with PROGRAM_THREAD")
         # else:
-        #     log.info('PROGRAM_THREAD terminated OK')
-
-    def __del__(self):
-        self.close()
+        #     self.logger.info('PROGRAM_THREAD terminated OK')
 
     def __ConfirmFileName(self):
         self.CurrentNameLabel.setText(self.FileNameInput.text())
@@ -316,20 +318,20 @@ class MyGUI:
                         self.WRITER.writeheader()
                         self.WRITER.writerow(dict(zip(self.data_list.names, self.data_list.units)))
 
-                log.info("Reading started")
-                print('Reading...')
+                self.logger.info("Reading started")
+                # print('Reading...')
         except Exception as e:
-            log.warning(f'Problem while STARTING. Check the INSTRUMENT\n\t{e}')
+            self.logger.warning(f'Problem while STARTING. Check the INSTRUMENT\n\t{e}')
 
     def __Stop(self):
         try:
             self.__WORKING_STATUS = False
             if self.FILE:
                 self.FILE.close()
-            log.info("Reading stopped")
-            print('Reading stopped')
+            self.logger.info("Reading stopped")
+            # print('Reading stopped')
         except Exception as e:
-            log.warning(f'Problem while STOPPING\n\t{e}')
+            self.logger.warning(f'Problem while STOPPING\n\t{e}')
 
     def __UpdateGraphs(self):
         with self.__LOCK:
@@ -349,7 +351,7 @@ class MyGUI:
                 self.FILE.flush()
 
     def __Reading(self):
-        print('READING starting...')
+        # print('READING starting...')
         while self.__GUI_STATUS:
             time.sleep(0.2)
             if self.__WORKING_STATUS:
@@ -388,7 +390,7 @@ class MyGUI:
                         self.WRITER.writerow(new_row)
 
                 except Exception as e:
-                    log.warning(f'FAIL to read: {e}')
+                    self.logger.warning(f'FAIL to read: {e}')
 
-        log.info('READING finished')
-        print('READING finished')
+        self.logger.info('READING finished')
+        # print('READING finished')
