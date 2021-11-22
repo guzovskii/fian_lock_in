@@ -320,9 +320,8 @@ if __name__ == '__main__':
         # app.exec_()
         GUI.exec()
 
-    if WORKING_STATUS:
-        Stop()
-    GUI_STATUS = False
+    # GUI.close()
+    # GUI_STATUS = False
 
     # try:
     #     READING_THREAD.join()

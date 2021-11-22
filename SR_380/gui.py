@@ -1,4 +1,5 @@
 from PyQt5 import QtGui, QtCore, QtWidgets
+from SR_380.equipment import SR830, rm
 import pyqtgraph as pg
 import sys
 import pandas as pd
@@ -149,14 +150,14 @@ class MyGUI:
         self.SR_inst = [None, None]
         self.K_inst = [None, None]
         self.LS_inst = [None]
-
+        # ---------------------GUI_COMMON--------------------
         self.win = QtWidgets.QMainWindow()
         self.win.resize(1000, 1000)
         self.win.setWindowTitle('LowTempMeasurements')
         self.win.setWindowIcon(QtGui.QIcon('1x/icon.png'))
         self.win.setMinimumWidth(800)
         self.win.setMinimumHeight(900)
-
+        # ---------------------GUI_PLOT_PAGE--------------------
         self.graph_1 = MyGraphWidget(x_list=self.data_list.names, y_list=self.data_list.names)
         self.graph_2 = MyGraphWidget(x_list=self.data_list.names, y_list=self.data_list.names)
         self.graph_3 = MyGraphWidget(x_list=self.data_list.names, y_list=self.data_list.names)
@@ -193,6 +194,18 @@ class MyGUI:
         self.CurrentNameLabel.setDisabled(True)
         self.CurrentNameLabel.setAlignment(QtCore.Qt.AlignCenter)
         self.CurrentNameLabel.setFixedWidth(250)
+        # ---------------------GUI_INSTRUMENTS_PAGE--------------------
+        self.SRInstruments = []
+        for i in range(2):
+            self.SRInstruments.append(dict(
+                widget=QtWidgets.QWidget(),
+                layout=QtWidgets.QHBoxLayout(),
+                cb=QtWidgets.QComboBox(),
+                label=QtWidgets.QLabel(f' R_{i+1}: '),
+                confirm_button=QtWidgets.QPushButton(),
+                text_line=QtWidgets.QLineEdit(),
+            ))
+            
 
         self.file_name_layout = QtWidgets.QHBoxLayout()
         self.file_name_layout.addWidget(self.FileNameInputLabel)
@@ -241,12 +254,18 @@ class MyGUI:
         # self.PROGRAM_THREAD = threading.Thread(target=self.__Program)
 
     def exec(self):
-        self.app.exec()
         self.READING_THREAD.start()
+        print('Starting GUI...')
+        self.update_timer.start()
+        self.app.exec()
+        self.close()
 
     def close(self):
+        print('Closing GUI...')
         if self.__WORKING_STATUS:
             self.__Stop()
+
+        self.__GUI_STATUS = False
 
         for R in self.SR_inst:
             if R:
@@ -265,6 +284,7 @@ class MyGUI:
         if self.READING_THREAD.is_alive():
             log.warning("Something wrong with READING_THREAD")
         else:
+            print('READING THREAD finished')
             log.info('READING_THREAD terminated OK')
 
         # try:
@@ -297,6 +317,7 @@ class MyGUI:
                         self.WRITER.writerow(dict(zip(self.data_list.names, self.data_list.units)))
 
                 log.info("Reading started")
+                print('Reading...')
         except Exception as e:
             log.warning(f'Problem while STARTING. Check the INSTRUMENT\n\t{e}')
 
@@ -306,6 +327,7 @@ class MyGUI:
             if self.FILE:
                 self.FILE.close()
             log.info("Reading stopped")
+            print('Reading stopped')
         except Exception as e:
             log.warning(f'Problem while STOPPING\n\t{e}')
 
@@ -327,6 +349,7 @@ class MyGUI:
                 self.FILE.flush()
 
     def __Reading(self):
+        print('READING starting...')
         while self.__GUI_STATUS:
             time.sleep(0.2)
             if self.__WORKING_STATUS:
@@ -368,3 +391,4 @@ class MyGUI:
                     log.warning(f'FAIL to read: {e}')
 
         log.info('READING finished')
+        print('READING finished')

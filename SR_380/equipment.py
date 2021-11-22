@@ -18,7 +18,7 @@ def now():
     return time.asctime(time.gmtime(time.time()))
 
 
-class SR_830():
+class SR830():
     def __init__(self, address: str):
         self.address: str = address
         self.inst = None
@@ -273,7 +273,7 @@ class SR_830():
 
 if __name__ == "__main__":
     print("run MAIN.PY")
-    R1 = SR_830("gpib0::1::instr")
+    R1 = SR830("gpib0::1::instr")
 
     try:
         #R1.set_freq(2000000)
