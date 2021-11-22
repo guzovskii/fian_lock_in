@@ -1,14 +1,22 @@
-from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
+from PyQt5 import QtGui, QtCore, QtWidgets
 import pyqtgraph as pg
 import sys
 import pandas as pd
+import threading
+import os
+import numpy as np
+import datetime
+import csv
+import logging as log
+import time
 
 
-class DATA_LIST_CLASS:
+class DataListClass:
     def __init__(self):
         self.names = [
             'Time',
             'T',
+            'Heater_power',
             '1_SR_Freq',
             '1_SR_R',
             '1_SR_Phase',
@@ -25,6 +33,7 @@ class DATA_LIST_CLASS:
         self.units = [
             'sec',
             'K',
+            'W',
             'Hz',
             'V',
             'deg',
@@ -45,9 +54,9 @@ class MyGraphWidget(QtWidgets.QWidget):
     def __init__(self, x_list, y_list, title='---', show_x_grid=True, show_y_grid=True, color='White'):
         super().__init__()
         self.x_data = x_list[0]
-        self.y_data = y_list[1]
+        self.y_data = y_list[0]
         self.layout = QtWidgets.QGridLayout()
-        self.graph_widget = pg.PlotWidget(title=title, labels={'left': y_list[1], 'bottom': x_list[0]})
+        self.graph_widget = pg.PlotWidget(title=title, labels={'left': y_list[0], 'bottom': x_list[0]})
         self.graph_widget.showGrid(x=show_x_grid, y=show_y_grid)
 
         self.__color_dict = dict(
@@ -123,10 +132,23 @@ class MyGraphWidget(QtWidgets.QWidget):
 
 
 class MyGUI:
-    def __init__(self, update_graph_func, start_func, stop_func, data_names):
+    def __init__(self):
         self.app = QtWidgets.QApplication(sys.argv)
 
-        self.data_list = DATA_LIST_CLASS()
+        self.data_list = DataListClass()
+
+        self.__WORKING_STATUS = False
+        self.__GUI_STATUS = True
+        self.__LOCK = threading.Lock()
+        self.__START_DT = datetime.datetime.now()
+        self.NUMBER_OF_POINTS = 10000
+
+        self.FILE = None
+        self.WRITER = None
+
+        self.SR_inst = [None, None]
+        self.K_inst = [None, None]
+        self.LS_inst = [None]
 
         self.win = QtWidgets.QMainWindow()
         self.win.resize(1000, 1000)
@@ -135,24 +157,24 @@ class MyGUI:
         self.win.setMinimumWidth(800)
         self.win.setMinimumHeight(900)
 
-        self.graph_1 = MyGraphWidget(x_list=data_names, y_list=data_names)
-        self.graph_2 = MyGraphWidget(x_list=data_names, y_list=data_names)
-        self.graph_3 = MyGraphWidget(x_list=data_names, y_list=data_names)
-        self.graph_4 = MyGraphWidget(x_list=data_names, y_list=data_names)
+        self.graph_1 = MyGraphWidget(x_list=self.data_list.names, y_list=self.data_list.names)
+        self.graph_2 = MyGraphWidget(x_list=self.data_list.names, y_list=self.data_list.names)
+        self.graph_3 = MyGraphWidget(x_list=self.data_list.names, y_list=self.data_list.names)
+        self.graph_4 = MyGraphWidget(x_list=self.data_list.names, y_list=self.data_list.names)
 
         self.StartButton = QtWidgets.QPushButton("START")
         self.StartButton.setIcon(QtGui.QIcon('1x/start.png'))
         self.StartButton.setIconSize(QtCore.QSize(30, 30))
         self.StartButton.setFixedWidth(150)
         self.StartButton.setFixedHeight(50)
-        self.StartButton.clicked.connect(start_func)
+        self.StartButton.clicked.connect(self.__Start)
 
         self.StopButton = QtWidgets.QPushButton("STOP")
         self.StopButton.setIcon(QtGui.QIcon('1x/stop.png'))
         self.StopButton.setIconSize(QtCore.QSize(30, 30))
         self.StopButton.setFixedWidth(150)
         self.StopButton.setFixedHeight(50)
-        self.StopButton.clicked.connect(stop_func)
+        self.StopButton.clicked.connect(self.__Stop)
 
         self.FileNameInputLabel = QtWidgets.QLabel('File name:')
         self.FileNameInputLabel.setAlignment(QtCore.Qt.AlignCenter)
@@ -160,11 +182,11 @@ class MyGUI:
 
         self.FileNameInput = QtWidgets.QLineEdit()
         self.FileNameInput.setAlignment(QtCore.Qt.AlignCenter)
-        self.FileNameInput.returnPressed.connect(self.ConfirmFileName)
+        self.FileNameInput.returnPressed.connect(self.__ConfirmFileName)
 
         self.ConfirmFileNameButton = QtWidgets.QPushButton("CONFIRM")
         self.ConfirmFileNameButton.setFixedWidth(100)
-        self.ConfirmFileNameButton.clicked.connect(self.ConfirmFileName)
+        self.ConfirmFileNameButton.clicked.connect(self.__ConfirmFileName)
         self.ConfirmFileNameButton.setAutoDefault(True)
 
         self.CurrentNameLabel = QtWidgets.QLineEdit()
@@ -210,13 +232,139 @@ class MyGUI:
         self.win.setCentralWidget(self.tab_widget)
 
         self.update_timer = QtCore.QTimer()
-        self.update_timer.timeout.connect(update_graph_func)
+        self.update_timer.timeout.connect(self.__UpdateGraphs)
         self.update_timer.setInterval(1000)
 
         self.win.show()
 
-    def ConfirmFileName(self):
-        self.CurrentNameLabel.setText(self.FileNameInput.text())
+        self.READING_THREAD = threading.Thread(target=self.__Reading)
+        # self.PROGRAM_THREAD = threading.Thread(target=self.__Program)
 
     def exec(self):
         self.app.exec()
+        self.READING_THREAD.start()
+
+    def close(self):
+        if self.__WORKING_STATUS:
+            self.__Stop()
+
+        for R in self.SR_inst:
+            if R:
+                R.close()
+        for K in self.K_inst:
+            if K:
+                K.close()
+        for LS in self.LS_inst:
+            if LS:
+                LS.close()
+
+        try:
+            self.READING_THREAD.join()
+        except Exception as e:
+            log.warning(f'Unable to join READING_THREAD\n\t{e}')
+        if self.READING_THREAD.is_alive():
+            log.warning("Something wrong with READING_THREAD")
+        else:
+            log.info('READING_THREAD terminated OK')
+
+        # try:
+        #     self.PROGRAM_THREAD.join()
+        # except Exception as e:
+        #     log.warning(f'Unable to join PROGRAM_TREAD\n\t{e}')
+        # if self.PROGRAM_THREAD.is_alive():
+        #     log.warning("Something wrong with PROGRAM_THREAD")
+        # else:
+        #     log.info('PROGRAM_THREAD terminated OK')
+
+    def __del__(self):
+        self.close()
+
+    def __ConfirmFileName(self):
+        self.CurrentNameLabel.setText(self.FileNameInput.text())
+
+    def __Start(self):
+        try:
+            if not self.__WORKING_STATUS:
+                self.__WORKING_STATUS = True
+
+                FileName = self.CurrentNameLabel.text().strip()
+                if FileName != '':
+                    isFile = os.path.isfile(FileName)
+                    self.FILE = open(FileName, 'a' if isFile else 'w', newline='')
+                    self.WRITER = csv.DictWriter(self.FILE, delimiter="\t", fieldnames=self.data_list.names)
+                    if not isFile:
+                        self.WRITER.writeheader()
+                        self.WRITER.writerow(dict(zip(self.data_list.names, self.data_list.units)))
+
+                log.info("Reading started")
+        except Exception as e:
+            log.warning(f'Problem while STARTING. Check the INSTRUMENT\n\t{e}')
+
+    def __Stop(self):
+        try:
+            self.__WORKING_STATUS = False
+            if self.FILE:
+                self.FILE.close()
+            log.info("Reading stopped")
+        except Exception as e:
+            log.warning(f'Problem while STOPPING\n\t{e}')
+
+    def __UpdateGraphs(self):
+        with self.__LOCK:
+            self.graph_1.plot(x=self.data_list.data[self.graph_1.x_data],
+                              y=self.data_list.data[self.graph_1.y_data],
+                              clear=True)  # , pen=None, symbol='o', symbolBrush=None, symbolSize=1)
+            self.graph_2.plot(x=self.data_list.data[self.graph_2.x_data],
+                              y=self.data_list.data[self.graph_2.y_data],
+                              clear=True)  # , pen=None, symbol='o', symbolBrush=None, symbolSize=1)
+            self.graph_3.plot(x=self.data_list.data[self.graph_3.x_data],
+                              y=self.data_list.data[self.graph_3.y_data],
+                              clear=True)  # , pen=None, symbol='o', symbolBrush=None, symbolSize=1)
+            self.graph_4.plot(x=self.data_list.data[self.graph_4.x_data],
+                              y=self.data_list.data[self.graph_4.y_data],
+                              clear=True)  # , pen=None, symbol='o', symbolBrush=None, symbolSize=1)
+            if self.FILE and self.__WORKING_STATUS:
+                self.FILE.flush()
+
+    def __Reading(self):
+        while self.__GUI_STATUS:
+            time.sleep(0.2)
+            if self.__WORKING_STATUS:
+                dt = datetime.datetime.now() - self.__START_DT
+                try:
+                    new_row = dict()
+                    new_row['Time'] = dt.seconds + dt.microseconds / 1e6
+
+                    for i, LS in enumerate(self.LS_inst):
+                        if LS:
+                            pass
+                        else:
+                            new_row[f'{f"{i+1}_" if len(self.LS_inst) > 1 else ""}T'] = np.random.normal(300, 1e-2)
+                            new_row[f'{f"{i+1}_" if len(self.LS_inst) > 1 else ""}Heater_Power'] = np.random.normal(1, 0.1)
+
+                    for i, R in enumerate(self.SR_inst):
+                        if R:
+                            pass
+                        else:
+                            new_row[f'{i+1}_SR_Freq'] = None
+                            new_row[f'{i+1}_SR_R'] = None
+                            new_row[f'{i+1}_SR_Phase'] = None
+                            new_row[f'{i+1}_SR_X'] = None
+                            new_row[f'{i+1}_SR_Y'] = None
+
+                    for i, K in enumerate(self.K_inst):
+                        if K:
+                            pass
+                        else:
+                            new_row[f'{i+1}_K_R4'] = None
+
+                    self.data_list.data = self.data_list.data.append(new_row, ignore_index=True)
+                    if len(self.data_list.data[self.data_list.names[0]]) > self.NUMBER_OF_POINTS:
+                        self.data_list.data = self.data_list.data.drop(0)
+                    if self.WRITER:
+                        self.WRITER.writerow(new_row)
+
+                except Exception as e:
+                    log.warning(f'FAIL to read: {e}')
+
+        log.info('READING finished')

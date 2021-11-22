@@ -207,106 +207,104 @@ def Program():
     log.info('PROGRAM finished')
 
 
-READING_THREAD = threading.Thread(target=Reading)
-PROGRAM_THREAD = threading.Thread(target=Program)
+# READING_THREAD = threading.Thread(target=Reading)
+# PROGRAM_THREAD = threading.Thread(target=Program)
 
 
 # -------------------------GUI---------------------------
 
 
 try:
-    # GUI = MyGUI(
+    GUI = MyGUI()
+
+    # app = QtWidgets.QApplication(sys.argv)
     #
-    # )
-
-    app = QtWidgets.QApplication(sys.argv)
-
-    win = QtWidgets.QMainWindow()
-    win.resize(1000, 1000)
-    win.setWindowTitle('LowTempMeasurements')
-    win.setWindowIcon(QtGui.QIcon('1x/icon.png'))
-    win.setMinimumWidth(800)
-    win.setMinimumHeight(900)
-
-    graph_1 = MyGraphWidget(x_list=DATA_LIST.names, y_list=DATA_LIST.names)
-    graph_2 = MyGraphWidget(x_list=DATA_LIST.names, y_list=DATA_LIST.names)
-    graph_3 = MyGraphWidget(x_list=DATA_LIST.names, y_list=DATA_LIST.names)
-    graph_4 = MyGraphWidget(x_list=DATA_LIST.names, y_list=DATA_LIST.names)
-
-    StartButton = QtWidgets.QPushButton("START")
-    StartButton.setIcon(QtGui.QIcon('1x/start.png'))
-    StartButton.setIconSize(QtCore.QSize(30, 30))
-    StartButton.setFixedWidth(150)
-    StartButton.setFixedHeight(50)
-    StartButton.clicked.connect(Start)
-
-    StopButton = QtWidgets.QPushButton("STOP")
-    StopButton.setIcon(QtGui.QIcon('1x/stop.png'))
-    StopButton.setIconSize(QtCore.QSize(30, 30))
-    StopButton.setFixedWidth(150)
-    StopButton.setFixedHeight(50)
-    StopButton.clicked.connect(Stop)
-
-    FileNameInputLabel = QtWidgets.QLabel('File name:')
-    FileNameInputLabel.setAlignment(QtCore.Qt.AlignCenter)
-    FileNameInputLabel.setFixedWidth(50)
-
-    FileNameInput = QtWidgets.QLineEdit()
-    FileNameInput.setAlignment(QtCore.Qt.AlignCenter)
-    FileNameInput.returnPressed.connect(ConfirmFileName)
-
-    ConfirmFileNameButton = QtWidgets.QPushButton("CONFIRM")
-    ConfirmFileNameButton.setFixedWidth(100)
-    ConfirmFileNameButton.clicked.connect(ConfirmFileName)
-    ConfirmFileNameButton.setAutoDefault(True)
-
-    CurrentNameLabel = QtWidgets.QLineEdit()
-    CurrentNameLabel.setDisabled(True)
-    CurrentNameLabel.setAlignment(QtCore.Qt.AlignCenter)
-    CurrentNameLabel.setFixedWidth(250)
-
-    file_name_layout = QtWidgets.QHBoxLayout()
-    file_name_layout.addWidget(FileNameInputLabel)
-    file_name_layout.addWidget(FileNameInput)
-    file_name_layout.addWidget(ConfirmFileNameButton)
-    file_name_layout.addWidget(CurrentNameLabel)
-
-    file_name_widget = QtWidgets.QWidget()
-    file_name_widget.setLayout(file_name_layout)
-
-    button_layout = QtWidgets.QHBoxLayout()
-    button_layout.addWidget(StartButton)
-    button_layout.addWidget(StopButton)
-    button_layout.setAlignment(QtCore.Qt.AlignCenter)
-
-    button_widget = QtWidgets.QWidget()
-    button_widget.setLayout(button_layout)
-
-    main_tab_layout = QtWidgets.QGridLayout()
-    main_tab_layout.addWidget(graph_1, 0, 0)
-    main_tab_layout.addWidget(graph_2, 0, 1)
-    main_tab_layout.addWidget(graph_3, 1, 0)
-    main_tab_layout.addWidget(graph_4, 1, 1)
-    main_tab_layout.addWidget(file_name_widget, 2, 0, 1, 2)
-    main_tab_layout.addWidget(button_widget, 3, 0, 1, 2)
-
-    main_widget = QtWidgets.QWidget()
-    main_widget.setLayout(main_tab_layout)
-
-    settings_widget = QtWidgets.QWidget()
-
-    tab_widget = QtWidgets.QTabWidget()
-
-    tab_widget.addTab(main_widget, QtGui.QIcon('1x/plots.png'), 'Plots')
-    tab_widget.addTab(settings_widget, QtGui.QIcon('1x/settings.png'), 'Settings')
-    tab_widget.setIconSize(QtCore.QSize(20, 20))
-    win.setCentralWidget(tab_widget)
-
-    update_timer = QtCore.QTimer()
-    update_timer.timeout.connect(UpdateGraphs)
-    update_timer.setInterval(1000)
-
-    win.show()
+    # win = QtWidgets.QMainWindow()
+    # win.resize(1000, 1000)
+    # win.setWindowTitle('LowTempMeasurements')
+    # win.setWindowIcon(QtGui.QIcon('1x/icon.png'))
+    # win.setMinimumWidth(800)
+    # win.setMinimumHeight(900)
+    #
+    # graph_1 = MyGraphWidget(x_list=DATA_LIST.names, y_list=DATA_LIST.names)
+    # graph_2 = MyGraphWidget(x_list=DATA_LIST.names, y_list=DATA_LIST.names)
+    # graph_3 = MyGraphWidget(x_list=DATA_LIST.names, y_list=DATA_LIST.names)
+    # graph_4 = MyGraphWidget(x_list=DATA_LIST.names, y_list=DATA_LIST.names)
+    #
+    # StartButton = QtWidgets.QPushButton("START")
+    # StartButton.setIcon(QtGui.QIcon('1x/start.png'))
+    # StartButton.setIconSize(QtCore.QSize(30, 30))
+    # StartButton.setFixedWidth(150)
+    # StartButton.setFixedHeight(50)
+    # StartButton.clicked.connect(Start)
+    #
+    # StopButton = QtWidgets.QPushButton("STOP")
+    # StopButton.setIcon(QtGui.QIcon('1x/stop.png'))
+    # StopButton.setIconSize(QtCore.QSize(30, 30))
+    # StopButton.setFixedWidth(150)
+    # StopButton.setFixedHeight(50)
+    # StopButton.clicked.connect(Stop)
+    #
+    # FileNameInputLabel = QtWidgets.QLabel('File name:')
+    # FileNameInputLabel.setAlignment(QtCore.Qt.AlignCenter)
+    # FileNameInputLabel.setFixedWidth(50)
+    #
+    # FileNameInput = QtWidgets.QLineEdit()
+    # FileNameInput.setAlignment(QtCore.Qt.AlignCenter)
+    # FileNameInput.returnPressed.connect(ConfirmFileName)
+    #
+    # ConfirmFileNameButton = QtWidgets.QPushButton("CONFIRM")
+    # ConfirmFileNameButton.setFixedWidth(100)
+    # ConfirmFileNameButton.clicked.connect(ConfirmFileName)
+    # ConfirmFileNameButton.setAutoDefault(True)
+    #
+    # CurrentNameLabel = QtWidgets.QLineEdit()
+    # CurrentNameLabel.setDisabled(True)
+    # CurrentNameLabel.setAlignment(QtCore.Qt.AlignCenter)
+    # CurrentNameLabel.setFixedWidth(250)
+    #
+    # file_name_layout = QtWidgets.QHBoxLayout()
+    # file_name_layout.addWidget(FileNameInputLabel)
+    # file_name_layout.addWidget(FileNameInput)
+    # file_name_layout.addWidget(ConfirmFileNameButton)
+    # file_name_layout.addWidget(CurrentNameLabel)
+    #
+    # file_name_widget = QtWidgets.QWidget()
+    # file_name_widget.setLayout(file_name_layout)
+    #
+    # button_layout = QtWidgets.QHBoxLayout()
+    # button_layout.addWidget(StartButton)
+    # button_layout.addWidget(StopButton)
+    # button_layout.setAlignment(QtCore.Qt.AlignCenter)
+    #
+    # button_widget = QtWidgets.QWidget()
+    # button_widget.setLayout(button_layout)
+    #
+    # main_tab_layout = QtWidgets.QGridLayout()
+    # main_tab_layout.addWidget(graph_1, 0, 0)
+    # main_tab_layout.addWidget(graph_2, 0, 1)
+    # main_tab_layout.addWidget(graph_3, 1, 0)
+    # main_tab_layout.addWidget(graph_4, 1, 1)
+    # main_tab_layout.addWidget(file_name_widget, 2, 0, 1, 2)
+    # main_tab_layout.addWidget(button_widget, 3, 0, 1, 2)
+    #
+    # main_widget = QtWidgets.QWidget()
+    # main_widget.setLayout(main_tab_layout)
+    #
+    # settings_widget = QtWidgets.QWidget()
+    #
+    # tab_widget = QtWidgets.QTabWidget()
+    #
+    # tab_widget.addTab(main_widget, QtGui.QIcon('1x/plots.png'), 'Plots')
+    # tab_widget.addTab(settings_widget, QtGui.QIcon('1x/settings.png'), 'Settings')
+    # tab_widget.setIconSize(QtCore.QSize(20, 20))
+    # win.setCentralWidget(tab_widget)
+    #
+    # update_timer = QtCore.QTimer()
+    # update_timer.timeout.connect(UpdateGraphs)
+    # update_timer.setInterval(1000)
+    #
+    # win.show()
 except Exception as e:
     print(f"GUI error ({e})")
     raise
@@ -314,38 +312,34 @@ except Exception as e:
 if __name__ == '__main__':
     import sys
 
-    READING_THREAD.start()
-    PROGRAM_THREAD.start()
+    # READING_THREAD.start()
+    # PROGRAM_THREAD.start()
 
-    update_timer.start()
+    # update_timer.start()
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-        app.exec_()
+        # app.exec_()
+        GUI.exec()
 
     if WORKING_STATUS:
         Stop()
     GUI_STATUS = False
 
-    try:
-        READING_THREAD.join()
-    except Exception as e:
-        log.warning(f'Unable to join READING_THREAD\n\t{e}')
-    if READING_THREAD.is_alive():
-        log.warning("Something wrong with READING_THREAD")
-    else:
-        log.info('READING_THREAD terminated OK')
-
-    try:
-        PROGRAM_THREAD.join()
-    except Exception as e:
-        log.warning(f'Unable to join PROGRAM_TREAD\n\t{e}')
-    if PROGRAM_THREAD.is_alive():
-        log.warning("Something wrong with PROGRAM_THREAD")
-    else:
-        log.info('PROGRAM_THREAD terminated OK')
-
     # try:
-    #     FILE.close()
+    #     READING_THREAD.join()
     # except Exception as e:
-    #     log.warning(f'FAIL to close FILE: {e}')
+    #     log.warning(f'Unable to join READING_THREAD\n\t{e}')
+    # if READING_THREAD.is_alive():
+    #     log.warning("Something wrong with READING_THREAD")
+    # else:
+    #     log.info('READING_THREAD terminated OK')
+    #
+    # try:
+    #     PROGRAM_THREAD.join()
+    # except Exception as e:
+    #     log.warning(f'Unable to join PROGRAM_TREAD\n\t{e}')
+    # if PROGRAM_THREAD.is_alive():
+    #     log.warning("Something wrong with PROGRAM_THREAD")
+    # else:
+    #     log.info('PROGRAM_THREAD terminated OK')
 
     equipment.rm.close()
