@@ -1,6 +1,6 @@
 import pyvisa as pv
 import pyvisa.constants
-import logging as log
+import logging
 import time
 from typing import Optional
 import enum
@@ -8,9 +8,9 @@ import csv
 
 mult_v = {"V": 1, "mV": 1e-3, "uV": 1e-6, "nV": 1e-9, 'pV': 1e-12}
 
-rm = pv.ResourceManager()
+ResourceManager = pv.ResourceManager()
 
-InstrList = rm.list_resources()
+InstrList = ResourceManager.list_resources()
 print(InstrList)
 
 
@@ -18,15 +18,16 @@ def now():
     return time.asctime(time.gmtime(time.time()))
 
 
-class SR830():
+class SR830:
     def __init__(self, address: str):
+        self.logger = logging.getLogger('self.logger.equipment.SR830')
         self.address: str = address
         self.inst = None
         try:
             if "GPIB" in address or "gpib" in address:
-                self.inst = rm.open_resource(address,)
+                self.inst = ResourceManager.open_resource(address,)
             else:
-                self.inst = rm.open_resource(
+                self.inst = ResourceManager.open_resource(
                     address,
                     baud_rate=19200,
                     parity=pv.constants.Parity.odd,
@@ -35,7 +36,7 @@ class SR830():
                 )
             self.inst.clear()
         except Exception as e:
-            log.warning(f'\t{address}:\n\t{e}')
+            self.logger.warning(f'FAIL to initialize instrument \'{address}\' : {e}')
 
         self.sens_dict = {0: "2 nV / fA",
                           1: "5 nV / fA",
@@ -70,7 +71,7 @@ class SR830():
             print(self.inst.query("*IDN?"))
             return self.inst.query("*IDN?")
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to get ID\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to get ID : {e}")
             return None
 
     def set_adeq_sens(self):
@@ -84,7 +85,7 @@ class SR830():
         try:
             return float(self.inst.query("FREQ?").strip())
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to get frequency value\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to get FREQUENCY value : {e}")
             return None
 
     def set_freq(self, freq: float):
@@ -95,7 +96,7 @@ class SR830():
             else:
                 print(self.address, f": frequency changed to {freq} Hz")
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to set frequency\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to set FREQUENCY : {e}")
 
     def get_data(self):
         try:
@@ -104,7 +105,7 @@ class SR830():
                     float(self.inst.query("OUTP? 3")), float(self.inst.query("OUTP? 4"))]
             return data
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to get data\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to get DATA : {e}")
             return list([None for i in range(4)])
 
     def get_x(self):
@@ -112,7 +113,7 @@ class SR830():
             R1.set_adeq_sens()
             return float(self.inst.query("OUTP? 1"))
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to get X value\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to get X value : {e}")
             return None
 
     def get_y(self):
@@ -120,7 +121,7 @@ class SR830():
             R1.set_adeq_sens()
             return float(self.inst.query("OUTP? 2"))
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to get Y value\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to get Y value : {e}")
             return None
 
     def get_ampl(self):
@@ -128,37 +129,37 @@ class SR830():
             R1.set_adeq_sens()
             return float(self.inst.query("OUTP? 3"))
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to get amplitude value\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to get AMPLITUDE value : {e}")
             return None
 
     def get_phase(self):
         try:
             return float(self.inst.query("OUTP? 4"))
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to get phase value\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to get PHASE value : {e}")
 
     def get_out_voltage(self):
         try:
             return float(self.inst.query("SLVL?"))
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to get out_voltage value\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to get OUT VOLTAGE value : {e}")
             return None
 
     def set_out_voltage(self, volt: float):
         try:
             self.inst.write(f"SLVL {volt}")
             if self.exec_status():
-                log.warning(f"\t{self.address}:\tFAIL to set out_voltage\n\t{e}")
+                self.logger.warning(f"{self.address} : FAIL to set OUT VOLTAGE")
             else:
-                log.info(f"\t{self.address}:\tOUT VOLTAGE changed to {volt} V")
+                self.logger.info(f"{self.address} : OUT VOLTAGE changed to {volt} V")
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to set out_voltage\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to set OUT VOLTAGE : {e}")
 
     def get_sens(self):
         try:
             return int(self.inst.query("SENS?"))
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to get SENSITIVITY value\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to get SENSITIVITY value : {e}")
             return None
 
     def sens_up(self):
@@ -166,13 +167,13 @@ class SR830():
             sens = self.get_sens()
             self.set_sens(min(sens + 1, 26))
             if sens < 26:
-                log.info(f"\t{self.address}:\tSENSITIVITY set to {self.sens_dict[min(sens + 1, 26)]}")
+                self.logger.info(f"{self.address} : SENSITIVITY set to {self.sens_dict[min(sens + 1, 26)]}")
                 return 0
             else:
-                log.info(f"\t{self.address}:\tmax SENSITIVITY set")
+                self.logger.info(f"{self.address} : Maximum SENSITIVITY set")
                 return 1
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to upgrade SENSITIVITY\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to upgrade SENSITIVITY : {e}")
             return 0
 
     def sens_down(self):
@@ -180,32 +181,32 @@ class SR830():
             sens = self.get_sens()
             self.set_sens(max(sens - 1, 0))
             if sens > 0:
-                log.info(f"\t{self.address}:\tSENSITIVITY set to {self.sens_dict[min(sens - 1, 26)]}")
+                self.logger.info(f"{self.address} : SENSITIVITY set to {self.sens_dict[min(sens - 1, 26)]}")
                 return 0
             else:
-                log.info(f"\t{self.address}:\tmin SENSITIVITY set")
+                self.logger.info(f"{self.address} : Minimum SENSITIVITY set")
                 return 1
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to downgrade SENSITIVITY\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to downgrade SENSITIVITY : {e}")
             return 0
 
     def set_sens(self, n: int):
         try:
             self.inst.write(f"SENS {n}")
             if self.exec_status():
-                log.warning(f"\t{self.address}:\tFAIL to set SENSITIVITY")
+                self.logger.warning(f"{self.address} : FAIL to set SENSITIVITY")
             else:
-                print(self.address, f": SENSITIVITY set to {self.sens_dict[n]}")
-                log.info(f"\t{self.address}:\tSENSITIVITY set to {self.sens_dict[n]}")
+                # print(self.address, f": SENSITIVITY set to {self.sens_dict[n]}")
+                self.logger.info(f"{self.address} : SENSITIVITY set to {self.sens_dict[n]}")
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to set SENSITIVITY\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to set SENSITIVITY : {e}")
             return None
 
     def close(self):
         try:
             self.inst.close()
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to close SR830\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to close SR830 : {e}")
 
     def __del__(self):
         self.close()
@@ -215,7 +216,7 @@ class SR830():
             R1.set_adeq_sens()
             return float(self.inst.query("OUTR? 1"))
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to get CH_1 value\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to get CH_1 value : {e}")
             return None
 
     def get_ch_2(self):
@@ -223,52 +224,52 @@ class SR830():
             R1.set_adeq_sens()
             return float(self.inst.query("OUTR? 2"))
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to get CH_2 value\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to get CH_2 value : {e}")
             return None
 
     def get_standard_event_status(self, n: int):
         try:
             return int(self.inst.query(f"*ESR? {n}"))
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to get STANDART EVENT STATUS BYTE {n} value\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to get STANDART EVENT STATUS BYTE {n} value : {e}")
             return None
 
     def get_LIA_status(self, n: int):
         try:
             return int(self.inst.query(f"LIAS? {n}"))
         except Exception as e:
-            log.warning(f"\t{self.address}:\tFAIL to LIA STATUS BYTE {n} value\n\t{e}")
+            self.logger.warning(f"{self.address} : FAIL to get LIA STATUS BYTE {n} value : {e}")
             return None
 
     def is_query_legal(self):
         try:
             ans = self.get_standard_event_status(5)
             if ans:
-                log.warning(f"\t{self.address}:\tillegal command")
+                self.logger.warning(f"{self.address} : Illegal command")
             return ans
         except Exception as e:
-            print(self.address, ": ", e)
+            self.logger.warning(f'{self.address} : {e}')
             return 0
 
     def exec_status(self):
         try:
             ans = self.get_standard_event_status(4)
             if ans:
-                log.warning(f"\t{self.address}:\tFAIL to execute command")
+                self.logger.warning(f"{self.address} : FAIL to execute command")
             return ans
         except Exception as e:
-            print(self.address, ": ", e)
-            return 0
+            self.logger.warning(f'{self.address} : {e}')
+            return None
 
     def output_overload(self):
         try:
             ans = self.get_LIA_status(2)
             if ans:
-                log.warning(f"\t{self.address}:\toutput overload detected")
+                self.logger.warning(f"{self.address} : Output overload detected")
             return ans
         except Exception as e:
-            print(self.address, ": ", e)
-            return 0
+            self.logger.warning(f'{self.address} : {e}')
+            return None
 
 
 if __name__ == "__main__":
@@ -285,4 +286,4 @@ if __name__ == "__main__":
         print(errs_byte)
     finally:
         R1.close()
-        rm.close()
+        ResourceManager.close()

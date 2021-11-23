@@ -1,5 +1,5 @@
 from PyQt5 import QtGui, QtCore, QtWidgets
-from SR_380.equipment import SR830, rm
+from SR_380.equipment import SR830, ResourceManager
 import pyqtgraph as pg
 import sys
 import pandas as pd
@@ -263,20 +263,20 @@ class MyGUI:
         self.close()
 
     def close(self):
-        self.logger.info('Closing GUI...')
+        if self.__GUI_STATUS:
+            self.logger.info('Closing GUI...')
+            self.__GUI_STATUS = False
+
         if self.__WORKING_STATUS:
             self.__Stop()
 
-        self.__GUI_STATUS = False
         try:
             self.READING_THREAD.join()
-
         except Exception as e:
             self.logger.warning(f'Unable to join READING_THREAD\n\t{e}')
         if self.READING_THREAD.is_alive():
             self.logger.warning("Something wrong with READING_THREAD")
         else:
-            # print('READING THREAD finished')
             self.logger.info('READING_THREAD terminated OK')
 
         # try:
@@ -288,15 +288,6 @@ class MyGUI:
         # else:
         #     self.logger.info('PROGRAM_THREAD terminated OK')
 
-        self.__del__()
-
-    def __del__(self):
-        # print('Closing GUI...')
-        if self.__WORKING_STATUS:
-            self.__Stop()
-
-        self.__GUI_STATUS = False
-
         for R in self.SR_inst:
             if R:
                 R.close()
@@ -306,6 +297,26 @@ class MyGUI:
         for LS in self.LS_inst:
             if LS:
                 LS.close()
+
+        ResourceManager.close()
+
+    # def __del__(self):
+    #     if self.__GUI_STATUS:
+    #         self.logger.info('Closing GUI...')
+    #         self.__GUI_STATUS = False
+    #
+    #     if self.__WORKING_STATUS:
+    #         self.__Stop()
+    #
+    #     for R in self.SR_inst:
+    #         if R:
+    #             R.close()
+    #     for K in self.K_inst:
+    #         if K:
+    #             K.close()
+    #     for LS in self.LS_inst:
+    #         if LS:
+    #             LS.close()
 
     def __ConfirmFileName(self):
         self.CurrentNameLabel.setText(self.FileNameInput.text())
