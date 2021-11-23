@@ -1,5 +1,5 @@
 from PyQt5 import QtGui, QtCore, QtWidgets
-from SR_380.equipment import SR830, ResourceManager  #, Keithley2000, LakeShore
+from SR_380.equipment import SR830, ResourceManager, Keithley2000  #, LakeShore
 import pyqtgraph as pg
 import sys
 import pandas as pd
@@ -144,7 +144,13 @@ class MyInstrumentSettingsWidget(QtWidgets.QWidget):
 
         self.instrument = None
 
-        self.inst_label = QtWidgets.QLabel(f' R_{widget_id+1}: ')
+        name = dict(
+            SR380='R',
+            Keithley2000='K',
+            LakeShore='LS',
+        )
+
+        self.inst_label = QtWidgets.QLabel(f' {name[self.instrument_type]}_{widget_id+1}: ')
         self.inst_label.setFixedWidth(60)
         self.inst_label.setAlignment(QtCore.Qt.AlignCenter)
 
@@ -178,14 +184,23 @@ class MyInstrumentSettingsWidget(QtWidgets.QWidget):
 
     def __SetInstrument(self):
         if self.instrument_type == 'SR380':
-            self.instrument = SR830(self.inst_cb.currentText())
-            if self.instrument:
+            try:
+                self.instrument = SR830(self.inst_cb.currentText())
                 self.current_inst_address.setText(f'{self.inst_cb.currentText()}: {self.instrument.name()}')
                 self.logger.info(
                     f'{self.inst_cb.currentText()} set as {self.inst_label.text().strip()[:-1]} instrument')
                 self.settings_button.setEnabled(True)
-        # elif instrument == 'Keithley2000':
-        #     self.K_inst[number] = Keithley2000(address)
+            except Exception as e:
+                pass
+        elif self.instrument_type == 'Keithley2000':
+            try:
+                self.instrument = Keithley2000(self.inst_cb.currentText())
+                self.current_inst_address.setText(f'{self.inst_cb.currentText()}: {self.instrument.name()}')
+                self.logger.info(
+                    f'{self.inst_cb.currentText()} set as {self.inst_label.text().strip()[:-1]} instrument')
+                self.settings_button.setEnabled(True)
+            except Exception as e:
+                pass
 
     def __OpenSR830Settings(self):
         if self.instrument is not None:
@@ -211,9 +226,10 @@ class MyGUI:
         self.FILE = None
         self.WRITER = None
 
-        self.SR_inst = [None, None]
-        self.K_inst = [None, None]
-        self.LS_inst = [None]
+        # self.SR_inst = [None, None]
+        # self.K_inst = [None, None]
+        # self.LS_inst = [None]
+
         # ---------------------GUI_COMMON--------------------
         self.win = QtWidgets.QMainWindow()
         self.win.resize(1000, 1000)
@@ -265,7 +281,7 @@ class MyGUI:
                 ResourceManager.list_resources(),
                 'LakeShore',
                 i,
-            ) for i, inst in enumerate(self.LS_inst)]
+            ) for i in range(1)]
         )
 
         self.SRSettings = list(
@@ -273,7 +289,7 @@ class MyGUI:
                 ResourceManager.list_resources(),
                 'SR380',
                 i,
-            ) for i, inst in enumerate(self.SR_inst)]
+            ) for i in range(2)]
         )
 
         self.KSettings = list(
@@ -281,7 +297,7 @@ class MyGUI:
                 ResourceManager.list_resources(),
                 'Keithley2000',
                 i,
-            ) for i, inst in enumerate(self.K_inst)]
+            ) for i in range(2)]
         )
 
         self.file_name_layout = QtWidgets.QHBoxLayout()
@@ -376,15 +392,15 @@ class MyGUI:
         # else:
         #     self.logger.info('PROGRAM_THREAD terminated OK')
 
-        for R in self.SR_inst:
-            if R:
-                R.close()
-        for K in self.K_inst:
-            if K:
+        for R in self.SRSettings:
+            if R.instrument:
+                R.instrument.close()
+        for K in self.KSettings:
+            if K.instrument:
                 K.close()
-        for LS in self.LS_inst:
-            if LS:
-                LS.close()
+        for LS in self.LSSettings:
+            if LS.instrument:
+                LS.instrument.close()
 
         ResourceManager.close()
 

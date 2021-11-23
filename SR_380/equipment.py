@@ -4,7 +4,7 @@ import logging
 import time
 from typing import Optional
 import enum
-import csv
+import re
 
 mult_v = {"V": 1, "mV": 1e-3, "uV": 1e-6, "nV": 1e-9, 'pV': 1e-12}
 
@@ -35,8 +35,11 @@ class SR830:
                     read_termination="\r"
                 )
             self.inst.clear()
+            if not re.search(r'SR380', self.name()):
+                raise AttributeError(f'{address} instrument is not SR380')
         except Exception as e:
             self.logger.warning(f'FAIL to initialize instrument \'{address}\' : {e}')
+            raise Exception
 
         self.sens_dict = {0: "2 nV / fA",
                           1: "5 nV / fA",
@@ -270,6 +273,91 @@ class SR830:
         except Exception as e:
             self.logger.warning(f'{self.address} : {e}')
             return None
+
+
+class Keithley2000:
+    def __init__(self, address: str):
+        self.logger = logging.getLogger('log.equipment.Keithley2000')
+        self.address: str = address
+        self.inst = None
+        try:
+            if "GPIB" in address or "gpib" in address:
+                self.inst = ResourceManager.open_resource(address, )
+            else:
+                self.inst = ResourceManager.open_resource(
+                    address,
+                    baud_rate=19200,
+                    parity=pv.constants.Parity.odd,
+                    data_bits=8,
+                    read_termination="\r"
+                )
+            self.inst.clear()
+            if not re.search(r'KEITHLEY INSTRUMENTS INC.,MODEL 2000', self.name()):
+                raise AttributeError(f'{address} instrument is not Keithley2000')
+        except Exception as e:
+            self.logger.warning(f'FAIL to initialize instrument \'{address}\' : {e}')
+            raise Exception
+
+    def name(self):
+        try:
+            return self.inst.query("*IDN?")
+        except Exception as e:
+            self.logger.warning(f"{self.address} : FAIL to get ID : {e}")
+            return None
+
+    def set_function(self, function):
+        name_dict = {'VAC': 'VOLT:AC',
+                     'VDC': 'VOLT:DC',
+                     'R4': 'FRES',
+                     'CAC': 'CURR:AC',
+                     'R2': "RES",
+                     'CDC': 'CURR:DC',
+                     'FREQ': 'FREQ',
+                     'TEMP': 'TEMP',
+                     'PER': 'PER',
+                     'DIOD': 'DIOD',
+                     'CONT': 'CONT'}
+
+        try:
+            self.inst.write(f":FUNC \'{name_dict[function]}\'")
+            self.logger.info(f"{self.address} : FUNCTION set to {self.inst.query(':FUNC?')}")
+            if self.inst.query(":FUNC?").strip()[1:-1] != name_dict[function]:
+                raise KeyError(f'Wrong key {self.inst.query(":FUNC?").strip()[1:-1]} != {name_dict[function]}')
+            return self.inst.query(":FUNC?")
+        except Exception as e:
+            self.logger.warning(f"{self.address} : FAIL to set FUNCTION : {e}")
+            return None
+
+    def get_data(self):
+        try:
+            return float(self.inst.query(":DATA?"))
+        except Exception as e:
+            self.logger.warning(f"{self.address} : FAIL to get DATA : {e}")
+            return None
+
+    def set_range(self, rng=120e6, auto=False):
+        if auto:
+            try:
+                self.inst.write(f"FRES:RANG:AUTO 1")
+                isAuto = self.inst.query('FRES:RANG:AUTO?')
+                if isAuto:
+                    self.logger.info(f"{self.address} : AUTO RANGE enabled")
+                else:
+                    self.logger.warning(f"{self.address} : FAIL to enable AUTO RANGE")
+                return isAuto
+            except Exception as e:
+                self.logger.warning(f"{self.address} : FAIL to enable AUTO RANGE : {e}")
+                return None
+        else:
+            try:
+                self.inst.write(f"FRES:RANG:UPP {rng}")
+                time.sleep(1)
+                current_rng = self.inst.query('FRES:RANG:UPP?')
+                self.logger.info(f"{self.address} : RANGE set to {current_rng} Ohm")
+                return current_rng
+            except Exception as e:
+                self.logger.info(f"{self.address} : FAIL to set RANGE : {e}")
+                return None
 
 
 if __name__ == "__main__":
