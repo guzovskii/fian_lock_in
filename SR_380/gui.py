@@ -1,5 +1,5 @@
 from PyQt5 import QtGui, QtCore, QtWidgets
-from SR_380.equipment import SR830, ResourceManager
+from SR_380.equipment import SR830, ResourceManager  #, Keithley2000, LakeShore
 import pyqtgraph as pg
 import sys
 import pandas as pd
@@ -198,15 +198,44 @@ class MyGUI:
         self.CurrentNameLabel.setFixedWidth(250)
         # ---------------------GUI_INSTRUMENTS_PAGE--------------------
         self.SRInstruments = []
-        for i in range(2):
-            self.SRInstruments.append(dict(
+        for i in range(len(self.SR_inst)):
+            new_line = dict(
+                number=i,
                 widget=QtWidgets.QWidget(),
                 layout=QtWidgets.QHBoxLayout(),
                 cb=QtWidgets.QComboBox(),
                 label=QtWidgets.QLabel(f' R_{i+1}: '),
-                confirm_button=QtWidgets.QPushButton(),
+                confirm_button=QtWidgets.QPushButton('Confirm'),
                 text_line=QtWidgets.QLineEdit(),
-            ))
+                settings_button=QtWidgets.QPushButton('Settings'),
+            )
+            new_line['cb'].addItems(ResourceManager.list_resources())
+
+            new_line['label'].setFixedWidth(60)
+            new_line['label'].setAlignment(QtCore.Qt.AlignCenter)
+
+            new_line['confirm_button'].setFixedWidth(100)
+            new_line['confirm_button'].clicked.connect(lambda: self.__SetInstrument(new_line['cb'].currentText(),
+                                                                                    'SR380', i))
+
+            new_line['text_line'].setDisabled(True)
+            new_line['text_line'].setFixedWidth(200)
+            new_line['text_line'].setAlignment(QtCore.Qt.AlignCenter)
+
+            new_line['settings_button'].setFixedWidth(100)
+            new_line['settings_button'].setDisabled(True)
+            new_line['settings_button'].clicked.connect(lambda: self.__OpenSR830Settings(self.SR_inst[i]))
+
+            new_line['layout'].addWidget(new_line['label'])
+            new_line['layout'].addWidget(new_line['cb'])
+            new_line['layout'].addWidget(new_line['confirm_button'])
+            new_line['layout'].addWidget(new_line['text_line'])
+            new_line['layout'].addWidget(new_line['settings_button'])
+
+            new_line['widget'].setLayout(new_line['layout'])
+            # new_line['widget'].setFixedHeight(20)
+            self.SRInstruments.append(new_line)
+            del new_line, i
 
         self.file_name_layout = QtWidgets.QHBoxLayout()
         self.file_name_layout.addWidget(self.FileNameInputLabel)
@@ -236,7 +265,12 @@ class MyGUI:
         self.main_widget = QtWidgets.QWidget()
         self.main_widget.setLayout(self.main_tab_layout)
 
+        self.settings_tab_layout = QtWidgets.QGridLayout()
+        for d in self.SRInstruments:
+            self.settings_tab_layout.addWidget(d['widget'])
+
         self.settings_widget = QtWidgets.QWidget()
+        self.settings_widget.setLayout(self.settings_tab_layout)
 
         self.tab_widget = QtWidgets.QTabWidget()
 
@@ -410,3 +444,21 @@ class MyGUI:
                     self.logger.warning(f'FAIL to read: {e}')
 
         self.logger.info('READING finished')
+
+    def __SetInstrument(self, address: str, instrument_type: str, number: int):
+        if instrument_type == 'SR380':
+            self.SR_inst[number] = SR830(address)
+            if self.SR_inst[number]:
+                self.SR_inst[number].name()
+                self.SRInstruments[number]['text_line'].setText(address)
+                self.logger.info(
+                    f'{address} set as {self.SRInstruments[number]["label"].text().strip()[:-1]} instrument')
+                self.SRInstruments[number]["settings_button"].setEnabled(True)
+        # elif instrument == 'Keithley2000':
+        #     self.K_inst[number] = Keithley2000(address)
+
+    def __OpenSR830Settings(self, instrument):
+        if instrument is not None:
+            self.logger.warning(f'Unable to open SETTINGS for {instrument.name()}')
+        else:
+            self.logger.warning(f'Unable to open SETTINGS for {type(instrument)}')

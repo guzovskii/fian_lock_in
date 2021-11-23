@@ -20,7 +20,7 @@ def now():
 
 class SR830:
     def __init__(self, address: str):
-        self.logger = logging.getLogger('self.logger.equipment.SR830')
+        self.logger = logging.getLogger('log.equipment.SR830')
         self.address: str = address
         self.inst = None
         try:
@@ -68,7 +68,7 @@ class SR830:
 
     def name(self):
         try:
-            print(self.inst.query("*IDN?"))
+            # print(self.inst.query("*IDN?"))
             return self.inst.query("*IDN?")
         except Exception as e:
             self.logger.warning(f"{self.address} : FAIL to get ID : {e}")
@@ -200,7 +200,7 @@ class SR830:
                 self.logger.info(f"{self.address} : SENSITIVITY set to {self.sens_dict[n]}")
         except Exception as e:
             self.logger.warning(f"{self.address} : FAIL to set SENSITIVITY : {e}")
-            return None
+            return 0
 
     def close(self):
         try:
@@ -249,7 +249,7 @@ class SR830:
             return ans
         except Exception as e:
             self.logger.warning(f'{self.address} : {e}')
-            return 0
+            return None
 
     def exec_status(self):
         try:

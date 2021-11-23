@@ -16,22 +16,10 @@ import os
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 from SR_380.gui import MyGraphWidget, MyGUI
 
-WORKING_STATUS = False
-GUI_STATUS = True
-LOCK = threading.Lock()
-START_DT = datetime.datetime.now()
-NUMBER_OF_POINTS = 10000
-
-R1 = None
-R2 = None
-K1 = None
-K2 = None
-
 logger = logging.getLogger('log')
 logger.setLevel(logging.DEBUG)
 
 # создаем файловый обработчик, который регистрирует отладочные сообщения
-file_handler = logging.FileHandler(datetime.datetime.now().strftime("%Y-%m-%d_%H_%M_%S") + '.log')
 file_handler = logging.FileHandler(datetime.datetime.now().strftime("%Y-%m-%d_%H_%M_%S") + '.log')
 # file_handler = logging.FileHandler('log.log')
 file_handler.setLevel(logging.DEBUG)
