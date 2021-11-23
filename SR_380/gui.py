@@ -255,13 +255,39 @@ class MyGUI:
         # self.PROGRAM_THREAD = threading.Thread(target=self.__Program)
 
     def exec(self):
+        self.logger.info('Starting GUI...')
         self.READING_THREAD.start()
-        # print('Starting GUI...')
+        self.logger.info('READING THREAD started')
         self.update_timer.start()
         self.app.exec()
         self.close()
 
     def close(self):
+        self.logger.info('Closing GUI...')
+        if self.__WORKING_STATUS:
+            self.__Stop()
+
+        self.__GUI_STATUS = False
+        try:
+            self.READING_THREAD.join()
+
+        except Exception as e:
+            self.logger.warning(f'Unable to join READING_THREAD\n\t{e}')
+        if self.READING_THREAD.is_alive():
+            self.logger.warning("Something wrong with READING_THREAD")
+        else:
+            # print('READING THREAD finished')
+            self.logger.info('READING_THREAD terminated OK')
+
+        # try:
+        #     self.PROGRAM_THREAD.join()
+        # except Exception as e:
+        #     self.logger.warning(f'Unable to join PROGRAM_TREAD\n\t{e}')
+        # if self.PROGRAM_THREAD.is_alive():
+        #     self.logger.warning("Something wrong with PROGRAM_THREAD")
+        # else:
+        #     self.logger.info('PROGRAM_THREAD terminated OK')
+
         self.__del__()
 
     def __del__(self):
@@ -280,26 +306,6 @@ class MyGUI:
         for LS in self.LS_inst:
             if LS:
                 LS.close()
-
-        try:
-            self.READING_THREAD.join()
-        except Exception as e:
-            self.logger.warning(f'Unable to join READING_THREAD\n\t{e}')
-        if self.READING_THREAD.is_alive():
-            self.logger.warning("Something wrong with READING_THREAD")
-        else:
-            # print('READING THREAD finished')
-            print('--READING_THREAD terminated OK')
-            self.logger.info('READING_THREAD terminated OK')
-
-        # try:
-        #     self.PROGRAM_THREAD.join()
-        # except Exception as e:
-        #     self.logger.warning(f'Unable to join PROGRAM_TREAD\n\t{e}')
-        # if self.PROGRAM_THREAD.is_alive():
-        #     self.logger.warning("Something wrong with PROGRAM_THREAD")
-        # else:
-        #     self.logger.info('PROGRAM_THREAD terminated OK')
 
     def __ConfirmFileName(self):
         self.CurrentNameLabel.setText(self.FileNameInput.text())
@@ -393,4 +399,3 @@ class MyGUI:
                     self.logger.warning(f'FAIL to read: {e}')
 
         self.logger.info('READING finished')
-        # print('READING finished')

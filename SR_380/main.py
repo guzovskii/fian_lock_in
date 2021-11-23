@@ -39,11 +39,11 @@ fh.setLevel(logging.DEBUG)
 # создаем консольный обработчик
 # с более высоким уровнем журнала
 ch = logging.StreamHandler()
-ch.setLevel(logging.ERROR)
+ch.setLevel(logging.INFO)
 
 # создаем форматтер и добавляем его в обработчики
 fmtstr = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-fmtdate = '%H:%M:%S'
+fmtdate = '%Y-%m-%d %H:%M:%S'
 formatter = logging.Formatter(fmtstr, fmtdate)
 fh.setFormatter(formatter)
 ch.setFormatter(formatter)
@@ -51,8 +51,6 @@ ch.setFormatter(formatter)
 # добавляем настроенные обработчики в логгер
 logger.addHandler(fh)
 logger.addHandler(ch)
-
-logger.info('создание объекта Auxiliary')
 
 # logging.info('logger')
 
