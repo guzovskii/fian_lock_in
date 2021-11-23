@@ -20,7 +20,7 @@ logger = logging.getLogger('log')
 logger.setLevel(logging.DEBUG)
 
 # создаем файловый обработчик, который регистрирует отладочные сообщения
-file_handler = logging.FileHandler(datetime.datetime.now().strftime("%Y-%m-%d_%H_%M_%S") + '.log')
+file_handler = logging.FileHandler(f'log/{datetime.datetime.now().strftime("%Y-%m-%d_%H_%M_%S")}.log')
 # file_handler = logging.FileHandler('log.log')
 file_handler.setLevel(logging.DEBUG)
 

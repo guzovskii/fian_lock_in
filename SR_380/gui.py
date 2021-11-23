@@ -132,6 +132,68 @@ class MyGraphWidget(QtWidgets.QWidget):
         self.graph_widget.showGrid(*args, **kwargs)
 
 
+class MyInstrumentSettingsWidget(QtWidgets.QWidget):
+    def __init__(self, instruments_list, instrument_type: str, widget_id: int):
+        super().__init__()
+        self.instruments_list = instruments_list
+        self.instrument_type = instrument_type
+
+        self.logger = logging.getLogger('log.gui.MyGUI')
+
+        self.ID = widget_id
+
+        self.instrument = None
+
+        self.inst_label = QtWidgets.QLabel(f' R_{widget_id+1}: ')
+        self.inst_label.setFixedWidth(60)
+        self.inst_label.setAlignment(QtCore.Qt.AlignCenter)
+
+        self.inst_cb=QtWidgets.QComboBox()
+        self.inst_cb.addItems(ResourceManager.list_resources())
+        self.inst_cb.setFixedWidth(150)
+
+        self.confirm_button = QtWidgets.QPushButton('Confirm')
+        self.confirm_button.setFixedWidth(100)
+        self.confirm_button.clicked.connect(self.__SetInstrument)
+
+        self.current_inst_address = QtWidgets.QLineEdit()
+        self.current_inst_address.setDisabled(True)
+        # self.current_inst_address.setFixedWidth(250)
+        self.current_inst_address.setAlignment(QtCore.Qt.AlignCenter)
+
+        self.settings_button = QtWidgets.QPushButton('Settings')
+        self.settings_button.setFixedWidth(100)
+        self.settings_button.setDisabled(True)
+        self.settings_button.clicked.connect(self.__OpenSR830Settings)
+
+        self.layout = QtWidgets.QHBoxLayout()
+        self.layout.addWidget(self.inst_label)
+        self.layout.addWidget(self.inst_cb)
+        self.layout.addWidget(self.confirm_button)
+        self.layout.addWidget(self.current_inst_address)
+        self.layout.addWidget(self.settings_button)
+
+        self.setLayout(self.layout)
+        # self.setFixedHeight(20)
+
+    def __SetInstrument(self):
+        if self.instrument_type == 'SR380':
+            self.instrument = SR830(self.inst_cb.currentText())
+            if self.instrument:
+                self.current_inst_address.setText(f'{self.inst_cb.currentText()}: {self.instrument.name()}')
+                self.logger.info(
+                    f'{self.inst_cb.currentText()} set as {self.inst_label.text().strip()[:-1]} instrument')
+                self.settings_button.setEnabled(True)
+        # elif instrument == 'Keithley2000':
+        #     self.K_inst[number] = Keithley2000(address)
+
+    def __OpenSR830Settings(self):
+        if self.instrument is not None:
+            self.logger.warning(f'Unable to open SETTINGS for {self.instrument.name().strip()}')
+        else:
+            self.logger.warning(f'Unable to open SETTINGS for {type(self.instrument)}')
+
+
 class MyGUI:
     def __init__(self):
         self.app = QtWidgets.QApplication(sys.argv)
@@ -196,46 +258,31 @@ class MyGUI:
         self.CurrentNameLabel.setDisabled(True)
         self.CurrentNameLabel.setAlignment(QtCore.Qt.AlignCenter)
         self.CurrentNameLabel.setFixedWidth(250)
+
         # ---------------------GUI_INSTRUMENTS_PAGE--------------------
-        self.SRInstruments = []
-        for i in range(len(self.SR_inst)):
-            new_line = dict(
-                number=i,
-                widget=QtWidgets.QWidget(),
-                layout=QtWidgets.QHBoxLayout(),
-                cb=QtWidgets.QComboBox(),
-                label=QtWidgets.QLabel(f' R_{i+1}: '),
-                confirm_button=QtWidgets.QPushButton('Confirm'),
-                text_line=QtWidgets.QLineEdit(),
-                settings_button=QtWidgets.QPushButton('Settings'),
-            )
-            new_line['cb'].addItems(ResourceManager.list_resources())
+        self.LSSettings = list(
+            [MyInstrumentSettingsWidget(
+                ResourceManager.list_resources(),
+                'LakeShore',
+                i,
+            ) for i, inst in enumerate(self.LS_inst)]
+        )
 
-            new_line['label'].setFixedWidth(60)
-            new_line['label'].setAlignment(QtCore.Qt.AlignCenter)
+        self.SRSettings = list(
+            [MyInstrumentSettingsWidget(
+                ResourceManager.list_resources(),
+                'SR380',
+                i,
+            ) for i, inst in enumerate(self.SR_inst)]
+        )
 
-            new_line['confirm_button'].setFixedWidth(100)
-            new_line['confirm_button'].clicked.connect(lambda: self.__SetInstrument(new_line['cb'].currentText(),
-                                                                                    'SR380', i))
-
-            new_line['text_line'].setDisabled(True)
-            new_line['text_line'].setFixedWidth(200)
-            new_line['text_line'].setAlignment(QtCore.Qt.AlignCenter)
-
-            new_line['settings_button'].setFixedWidth(100)
-            new_line['settings_button'].setDisabled(True)
-            new_line['settings_button'].clicked.connect(lambda: self.__OpenSR830Settings(self.SR_inst[i]))
-
-            new_line['layout'].addWidget(new_line['label'])
-            new_line['layout'].addWidget(new_line['cb'])
-            new_line['layout'].addWidget(new_line['confirm_button'])
-            new_line['layout'].addWidget(new_line['text_line'])
-            new_line['layout'].addWidget(new_line['settings_button'])
-
-            new_line['widget'].setLayout(new_line['layout'])
-            # new_line['widget'].setFixedHeight(20)
-            self.SRInstruments.append(new_line)
-            del new_line, i
+        self.KSettings = list(
+            [MyInstrumentSettingsWidget(
+                ResourceManager.list_resources(),
+                'Keithley2000',
+                i,
+            ) for i, inst in enumerate(self.K_inst)]
+        )
 
         self.file_name_layout = QtWidgets.QHBoxLayout()
         self.file_name_layout.addWidget(self.FileNameInputLabel)
@@ -266,8 +313,15 @@ class MyGUI:
         self.main_widget.setLayout(self.main_tab_layout)
 
         self.settings_tab_layout = QtWidgets.QGridLayout()
-        for d in self.SRInstruments:
-            self.settings_tab_layout.addWidget(d['widget'])
+        self.settings_tab_layout.addWidget(QtWidgets.QLabel('SR380 Lock-In:'))
+        for widget in self.SRSettings:
+            self.settings_tab_layout.addWidget(widget)
+        self.settings_tab_layout.addWidget(QtWidgets.QLabel('Keithley2000:'))
+        for widget in self.KSettings:
+            self.settings_tab_layout.addWidget(widget)
+        self.settings_tab_layout.addWidget(QtWidgets.QLabel('LakeShore:'))
+        for widget in self.LSSettings:
+            self.settings_tab_layout.addWidget(widget)
 
         self.settings_widget = QtWidgets.QWidget()
         self.settings_widget.setLayout(self.settings_tab_layout)
@@ -444,21 +498,3 @@ class MyGUI:
                     self.logger.warning(f'FAIL to read: {e}')
 
         self.logger.info('READING finished')
-
-    def __SetInstrument(self, address: str, instrument_type: str, number: int):
-        if instrument_type == 'SR380':
-            self.SR_inst[number] = SR830(address)
-            if self.SR_inst[number]:
-                self.SR_inst[number].name()
-                self.SRInstruments[number]['text_line'].setText(address)
-                self.logger.info(
-                    f'{address} set as {self.SRInstruments[number]["label"].text().strip()[:-1]} instrument')
-                self.SRInstruments[number]["settings_button"].setEnabled(True)
-        # elif instrument == 'Keithley2000':
-        #     self.K_inst[number] = Keithley2000(address)
-
-    def __OpenSR830Settings(self, instrument):
-        if instrument is not None:
-            self.logger.warning(f'Unable to open SETTINGS for {instrument.name()}')
-        else:
-            self.logger.warning(f'Unable to open SETTINGS for {type(instrument)}')
