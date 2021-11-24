@@ -6,6 +6,7 @@ import pandas as pd
 import threading
 import os
 import numpy as np
+import configparser as cp
 import datetime
 import csv
 import logging
@@ -133,7 +134,7 @@ class MyGraphWidget(QtWidgets.QWidget):
 
 
 class MyInstrumentSettingsWidget(QtWidgets.QWidget):
-    def __init__(self, instruments_list, instrument_type: str, widget_id: int):
+    def __init__(self, instruments_list, instrument_type: str, widget_id: int, function=None):
         super().__init__()
         self.instruments_list = instruments_list
         self.instrument_type = instrument_type
@@ -151,8 +152,12 @@ class MyInstrumentSettingsWidget(QtWidgets.QWidget):
             Keithley2000='K',
             LakeShore='LS',
         )
-
-        self.inst_label = QtWidgets.QLabel(f' {name[self.instrument_type]}_{widget_id+1}: ')
+        if self.instrument_type == 'Keithley2000':
+            self.function = function if function is not None else 'VDC'
+        try:
+            self.inst_label = QtWidgets.QLabel(f' {name[self.instrument_type]}_{widget_id+1}: ')
+        except KeyError:
+            raise AttributeError('instrument_type must be \'SR830\', \'Keithley2000\' or \'LakeShore\'')
         self.inst_label.setFixedWidth(60)
         self.inst_label.setAlignment(QtCore.Qt.AlignCenter)
 
@@ -229,6 +234,7 @@ class MyGUI:
 
         self.FILE = None
         self.WRITER = None
+        self.CONFIG = None
 
         # ---------------------GUI_COMMON--------------------
         self.win = QtWidgets.QMainWindow()
@@ -328,16 +334,22 @@ class MyGUI:
         self.main_widget = QtWidgets.QWidget()
         self.main_widget.setLayout(self.main_tab_layout)
 
-        self.settings_tab_layout = QtWidgets.QGridLayout()
-        self.settings_tab_layout.addWidget(QtWidgets.QLabel('SR380 Lock-In:'))
+        self.SRLayout = QtWidgets.QVBoxLayout()
         for widget in self.SRSettings:
-            self.settings_tab_layout.addWidget(widget)
-        self.settings_tab_layout.addWidget(QtWidgets.QLabel('Keithley2000:'))
+            self.SRLayout.addWidget(widget)
+        self.KLayout = QtWidgets.QVBoxLayout()
         for widget in self.KSettings:
-            self.settings_tab_layout.addWidget(widget)
-        self.settings_tab_layout.addWidget(QtWidgets.QLabel('LakeShore:'))
+            self.KLayout.addWidget(widget)
+        self.LSLayout = QtWidgets.QVBoxLayout()
         for widget in self.LSSettings:
-            self.settings_tab_layout.addWidget(widget)
+            self.LSLayout.addWidget(widget)
+
+        self.settings_tab_layout = QtWidgets.QGridLayout()
+        self.settings_tab_layout.addWidget(QtWidgets.QLabel('SR380 Lock-In:'), 0, 0, 1, 1)
+
+        self.settings_tab_layout.addWidget(QtWidgets.QLabel('Keithley2000:'), 2, 0, 1, 1)
+
+        self.settings_tab_layout.addWidget(QtWidgets.QLabel('LakeShore:'), 4, 0, 1, 1)
 
         self.settings_widget = QtWidgets.QWidget()
         self.settings_widget.setLayout(self.settings_tab_layout)
@@ -514,3 +526,26 @@ class MyGUI:
                     self.logger.warning(f'FAIL to read: {e}')
 
         self.logger.info('READING finished')
+
+    def CreateConfigFile(self):
+        self.CONFIG = cp.ConfigParser()
+        self.CONFIG.read_dict(
+            dict(
+                SR380=dict(addresses=[inst.address for inst in self.SRSettings if inst.address is not None]),
+                Keithley2000=dict(addresses=[inst.address for inst in self.KSettings if inst.address is not None],
+                                  functions=[inst.function for inst in self.KSettings if inst.address is not None]),
+                LakeShore=dict(addresses=[inst.address for inst in self.LSSettings if inst.address is not None]),
+            )
+        )
+
+        with open('config.ini') as cnf:
+            self.CONFIG.write(cnf)
+
+    def LoadConfig(self):
+        self.CONFIG = cp.ConfigParser()
+
+        with open('config.ini') as cnf:
+            self.CONFIG.read_file(cnf)
+
+        for address in self.CONFIG['SR380']['addresses']:
+            pass
