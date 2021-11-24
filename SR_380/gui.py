@@ -138,6 +138,8 @@ class MyInstrumentSettingsWidget(QtWidgets.QWidget):
         self.instruments_list = instruments_list
         self.instrument_type = instrument_type
 
+        self.address = None
+
         self.logger = logging.getLogger('log.gui.MyGUI')
 
         self.ID = widget_id
@@ -187,6 +189,7 @@ class MyInstrumentSettingsWidget(QtWidgets.QWidget):
             try:
                 self.instrument = SR830(self.inst_cb.currentText())
                 self.current_inst_address.setText(f'{self.inst_cb.currentText()}: {self.instrument.name()}')
+                self.address = self.inst_cb.currentText()
                 self.logger.info(
                     f'{self.inst_cb.currentText()} set as {self.inst_label.text().strip()[:-1]} instrument')
                 self.settings_button.setEnabled(True)
@@ -195,7 +198,8 @@ class MyInstrumentSettingsWidget(QtWidgets.QWidget):
         elif self.instrument_type == 'Keithley2000':
             try:
                 self.instrument = Keithley2000(self.inst_cb.currentText())
-                self.current_inst_address.setText(f'{self.inst_cb.currentText()}: {self.instrument.name()}')
+                self.current_inst_address.setText(f'{self.inst_cb.currentText()} : {self.instrument.name()}')
+                self.address = self.inst_cb.currentText()
                 self.logger.info(
                     f'{self.inst_cb.currentText()} set as {self.inst_label.text().strip()[:-1]} instrument')
                 self.settings_button.setEnabled(True)
@@ -204,7 +208,7 @@ class MyInstrumentSettingsWidget(QtWidgets.QWidget):
 
     def __OpenSR830Settings(self):
         if self.instrument is not None:
-            self.logger.warning(f'Unable to open SETTINGS for {self.instrument.name().strip()}')
+            self.logger.warning(f'Unable to open SETTINGS for {self.instrument.name().strip()} ({self.address})')
         else:
             self.logger.warning(f'Unable to open SETTINGS for {type(self.instrument)}')
 
@@ -225,10 +229,6 @@ class MyGUI:
 
         self.FILE = None
         self.WRITER = None
-
-        # self.SR_inst = [None, None]
-        # self.K_inst = [None, None]
-        # self.LS_inst = [None]
 
         # ---------------------GUI_COMMON--------------------
         self.win = QtWidgets.QMainWindow()
@@ -412,13 +412,13 @@ class MyGUI:
     #     if self.__WORKING_STATUS:
     #         self.__Stop()
     #
-    #     for R in self.SR_inst:
+    #     for R in self.SRSettings:
     #         if R:
     #             R.close()
-    #     for K in self.K_inst:
+    #     for K in self.KSettings:
     #         if K:
     #             K.close()
-    #     for LS in self.LS_inst:
+    #     for LS in self.LSSettings:
     #         if LS:
     #             LS.close()
 
@@ -481,14 +481,14 @@ class MyGUI:
                     new_row = dict()
                     new_row['Time'] = dt.seconds + dt.microseconds / 1e6
 
-                    for i, LS in enumerate(self.LS_inst):
+                    for i, LS in enumerate(self.LSSettings):
                         if LS:
                             pass
                         else:
-                            new_row[f'{f"{i+1}_" if len(self.LS_inst) > 1 else ""}T'] = np.random.normal(300, 1e-2)
-                            new_row[f'{f"{i+1}_" if len(self.LS_inst) > 1 else ""}Heater_Power'] = np.random.normal(1, 0.1)
+                            new_row[f'{f"{i+1}_" if len(self.LSSettings) > 1 else ""}T'] = np.random.normal(300, 1e-2)
+                            new_row[f'{f"{i+1}_" if len(self.LSSettings) > 1 else ""}Heater_Power'] = np.random.normal(1, 0.1)
 
-                    for i, R in enumerate(self.SR_inst):
+                    for i, R in enumerate(self.SRSettings):
                         if R:
                             pass
                         else:
@@ -498,7 +498,7 @@ class MyGUI:
                             new_row[f'{i+1}_SR_X'] = None
                             new_row[f'{i+1}_SR_Y'] = None
 
-                    for i, K in enumerate(self.K_inst):
+                    for i, K in enumerate(self.KSettings):
                         if K:
                             pass
                         else:
