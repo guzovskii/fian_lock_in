@@ -26,7 +26,7 @@ file_handler.setLevel(logging.DEBUG)
 
 # создаем консольный обработчик с более высоким уровнем журнала
 console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
+console_handler.setLevel(logging.DEBUG)
 
 # создаем форматтер и добавляем его в обработчики
 format_str = '%(asctime)s - %(name)s - %(levelname)s >>> %(message)s'
