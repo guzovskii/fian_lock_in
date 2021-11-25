@@ -185,11 +185,11 @@ class MyInstrumentSettingsWidget(QtWidgets.QWidget):
         self.settings_button = QtWidgets.QPushButton('Settings')
         self.settings_button.setFixedWidth(100)
         self.settings_button.setDisabled(True)
-        self.settings_button.clicked.connect(self.__OpenSR830Settings())
+        self.settings_button.clicked.connect(self.__OpenSR830Settings)
 
         self.remove_button = QtWidgets.QPushButton(icon=QtGui.QIcon('1x/delete.png'))
         self.remove_button.setFixedWidth(30)
-        self.remove_button.clicked.connect(self.__SetRemoved())
+        self.remove_button.clicked.connect(self.__SetRemoved)
 
         self.layout = QtWidgets.QHBoxLayout()
         self.layout.addWidget(self.inst_label)
@@ -202,11 +202,12 @@ class MyInstrumentSettingsWidget(QtWidgets.QWidget):
         self.setLayout(self.layout)
         # self.setFixedHeight(20)
 
-    def Recreate(self):
-        self.instrument = None
-        self.address = None
-        self.current_inst_address.setText('')
-        self.settings_button.setDisabled(True)
+    def Recreate(self, instrument=None, address=None, current_text='', disabled=False, visible=False):
+        self.instrument = instrument
+        self.address = address
+        self.current_inst_address.setText(current_text)
+        self.settings_button.setDisabled(disabled)
+        self.setVisible(visible)
 
     def __SetRemoved(self):
         self.setVisible(False)
@@ -310,7 +311,7 @@ class MyGUI:
                 ResourceManager.list_resources(),
                 'LakeShore',
                 i,
-                remove_func=self.__RemoveLS,
+                # remove_func=self.__RemoveLS,
             ) for i in range(MAX_NUMBER_OF_INSTRUMENTS)]
         )
         for widget in self.LSSettings:
@@ -494,21 +495,35 @@ class MyGUI:
     #             LS.close()
 
     def __AddSR(self):
-        self.SRSettings[self.SRNumber].setVisible(True)
-        self.SRNumber = min(MAX_NUMBER_OF_INSTRUMENTS, self.SRNumber + 1)
+        if self.SRNumber < MAX_NUMBER_OF_INSTRUMENTS:
+            self.SRSettings[self.SRNumber].setVisible(True)
+            self.SRNumber = min(MAX_NUMBER_OF_INSTRUMENTS, self.SRNumber + 1)
 
-        self.logger.debug(f'Instrument #{len(self.SRSettings)} added')
+            self.logger.debug(f'Instrument #{self.SRNumber} added')
+        else:
+            self.logger.debug(f'Maximum number of instruments is {MAX_NUMBER_OF_INSTRUMENTS}')
 
     def __RemoveSR(self):
         self.SRNumber = max(0, self.SRNumber - 1)
 
+        deleted_inst = 0
         for i in range(MAX_NUMBER_OF_INSTRUMENTS):
             if not self.SRSettings[i].isVisible():
                 deleted_inst = i
+                break
+
+        for i in range(deleted_inst, self.SRNumber):
+            self.SRSettings[i].Recreate(
+                instrument=self.SRSettings[i+1].instrument,
+                address=self.SRSettings[i+1].address,
+                current_text=self.SRSettings[i+1].current_inst_address.text(),
+                disabled=self.SRSettings[i+1].instrument is None,
+                visible=True,
+            )
 
         self.SRSettings[self.SRNumber].Recreate()
 
-        self.logger.debug('Instrument removed')
+        self.logger.debug(f'Instrument #{deleted_inst+1} removed')
 
     def __AddK(self):
         self.KSettings.append(MyInstrumentSettingsWidget(
@@ -545,8 +560,7 @@ class MyGUI:
         self.LSSettings.append(MyInstrumentSettingsWidget(
             ResourceManager.list_resources(),
             'LakeShore',
-            self.LSSettings[-1].ID + 1 if len(self.LSSettings) > 0 else 0,
-            self.__RemoveLS),
+            self.LSSettings[-1].ID + 1 if len(self.LSSettings) > 0 else 0),
         )
 
         # self.LSWidget = QtWidgets.QWidget()
@@ -558,19 +572,19 @@ class MyGUI:
 
         self.logger.debug('Instrument added')
 
-    def __RemoveLS(self):
-        for widget in self.LSSettings:
-            if widget.is_removed:
-                self.LSSettings.remove(widget)
-
-        # self.LSWidget = QtWidgets.QWidget()
-        self.LSLayout = QtWidgets.QVBoxLayout()
-        for widget in self.LSSettings:
-            self.LSLayout.addWidget(widget)
-        self.LSLayout.addWidget(self.AddLSButton)
-        self.LSWidget.setLayout(self.LSLayout)
-
-        self.logger.debug('Instrument removed')
+    # def __RemoveLS(self):
+    #     for widget in self.LSSettings:
+    #         if widget.is_removed:
+    #             self.LSSettings.remove(widget)
+    #
+    #     # self.LSWidget = QtWidgets.QWidget()
+    #     self.LSLayout = QtWidgets.QVBoxLayout()
+    #     for widget in self.LSSettings:
+    #         self.LSLayout.addWidget(widget)
+    #     self.LSLayout.addWidget(self.AddLSButton)
+    #     self.LSWidget.setLayout(self.LSLayout)
+    #
+    #     self.logger.debug('Instrument removed')
 
     def __ConfirmFileName(self):
         self.CurrentNameLabel.setText(self.FileNameInput.text())
