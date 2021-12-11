@@ -14,7 +14,7 @@ import pyqtgraph as pg
 import logging
 import os
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
-from SR_380.gui import MyGraphWidget, MyGUI
+from gui import MyGraphWidget, MyGUI
 
 logger = logging.getLogger('log')
 logger.setLevel(logging.DEBUG)

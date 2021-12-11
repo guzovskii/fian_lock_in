@@ -1,5 +1,5 @@
 from PyQt5 import QtGui, QtCore, QtWidgets
-from SR_380.equipment import SR830, ResourceManager, Keithley2000  #, LakeShore
+from equipment import SR830, ResourceManager, Keithley2000  #, LakeShore
 import pyqtgraph as pg
 import sys
 import pandas as pd
